@@ -82,12 +82,26 @@ def main_loop(trading_book):
         if not process_command(cmd, trading_book):
             print("\033[31mUnknown command. Type 'help' for options.\033[0m")
 
-def log_trade(trading_book):
+def log_trade(trading_book, type=None, action=None, value=None, stop=None, atr=None):
     """
     Logic for logging a trade
     """
     # This going to be a class, just adding place holder
-    print("Trade logged successfully.")
+    if type and action and value and stop and atr:
+        print("Trade logged successfully.\n")
+    else:
+        if not type:
+            type = get_input("Enter trade type (long/short): \n")
+        if not action:
+            type = get_input("Enter action (open/close/update): \n")
+        if not value:
+            type = get_input("Enter value (#.##): \n")
+        if not stop:
+            type = get_input("Enter stop (#.##): \n")
+        if not atr:
+            type = get_input("Enter ATR (10.00% or 0.10): \n")
+        print(f"Logging trade with user input: Type={type}, Action={action}, Value={value}, Stop-loss={stop}, ATR={atr}")
+
 
 def view_stats(trading_book):
     """
