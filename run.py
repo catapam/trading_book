@@ -102,7 +102,6 @@ def log_trade(trading_book, type=None, action=None, value=None, stop=None, atr=N
             type = get_input("Enter ATR (10.00% or 0.10): \n")
         print(f"Logging trade with user input: Type={type}, Action={action}, Value={value}, Stop-loss={stop}, ATR={atr}")
 
-
 def view_stats(trading_book):
     """
     Logic for viewing stats
