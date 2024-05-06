@@ -82,25 +82,57 @@ def main_loop(trading_book):
         if not process_command(cmd, trading_book):
             print("\033[31mUnknown command. Type 'help' for options.\033[0m")
 
+def menu_check(prompt):
+    """
+    This function checks if the input is to navigate away or continue with the current job.
+    It also handles cancellation requests interactively.
+    """
+    while True:
+        input_value = get_input(prompt)
+        if not process_command(input_value, SHEET):
+            return input_value
+        while True:  # Loop to handle cancellation verification
+            cancel = get_input("\nNavigating away will cancel the current job. Do you want to proceed? (y/n): \n")
+            if cancel.lower() == 'y':
+                return None  # Return None to signal a cancellation
+            elif cancel.lower() == 'n':
+                break  # Exit the inner loop and re-prompt the original question
+            else:
+                print("\nPlease use 'y' or 'n'.")
+
 def log_trade(trading_book, type=None, action=None, value=None, stop=None, atr=None):
     """
-    Logic for logging a trade
+    Logic for logging a trade with optional user interaction to fill in details.
     """
-    # This going to be a class, just adding place holder
-    if type and action and value and stop and atr:
-        print("Trade logged successfully.\n")
-    else:
-        if not type:
-            type = get_input("Enter trade type (long/short): \n")
-        if not action:
-            type = get_input("Enter action (open/close/update): \n")
-        if not value:
-            type = get_input("Enter value (#.##): \n")
-        if not stop:
-            type = get_input("Enter stop (#.##): \n")
-        if not atr:
-            type = get_input("Enter ATR (10.00% or 0.10): \n")
-        print(f"Logging trade with user input: Type={type}, Action={action}, Value={value}, Stop-loss={stop}, ATR={atr}")
+    print("\nStarting to log a trade...")
+
+    if not type:
+        type = menu_check("Enter trade type (long/short): \n")
+        if type is None:
+            return 
+
+    if not action:
+        action = menu_check("Enter action (open/close/update): \n")
+        if action is None:
+            return
+
+    if not value:
+        value = menu_check("Enter value (#.##): \n")
+        if value is None:
+            return
+
+    if not stop:
+        stop = menu_check("Enter stop (#.##): \n")
+        if stop is None:
+            return 
+
+    if not atr:
+        atr = menu_check("Enter ATR (10.00% or 0.10): \n")
+        if atr is None:
+            return 
+
+    print(f"Logging trade with user input: Type={type}, Action={action}, Value={value}, Stop={stop}, ATR={atr}")
+
 
 def view_stats(trading_book):
     """
