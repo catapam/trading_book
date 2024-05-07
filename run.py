@@ -99,6 +99,18 @@ def main_loop(trading_book):
             print("\033[31mUnknown command. Type 'help' for options.\033[0m")
 
 
+# def input_check(prompt,expected_format,key,context=None):
+    # multi_menu_validation = menu_check(prompt, context)
+    # single_menu_validation = menu_check(prompt, context)
+    # format_validation = input_format_validation(prompt,expected_format,key,context=None)
+
+
+def multi_menu_validation():
+    """
+    Checks user input for valid multi layer menu requests
+    """
+    # placeholder
+
 def menu_check(prompt, context=None):
     """
     Handle user input and allow navigation or continuation based on context. Also process cancellation requests.
@@ -123,13 +135,15 @@ def menu_check(prompt, context=None):
         elif input_value in ('check','set','help'):
             process_command(input_value, trading_book)
         elif input_value in ('exit','add'):
+            original_input=input_value
             if navigate_away() is None:
                 return None
+            input_value=original_input
         else:
             return input_value
 
 
-def data_input_validation(prompt,expected_format,key,context=None):
+def input_format_validation(prompt,expected_format,key,context=None):
     """
     Checks input data for formatting issues
     """
@@ -138,35 +152,47 @@ def data_input_validation(prompt,expected_format,key,context=None):
             input_value = menu_check(prompt, context)
             if input_value is None:
                 raise ValueError(
-                    f"Operation canceled during input for {key}."
+                    f"Operation canceled during input for {key}.\n"
                     )
 
+            normalized_input = input_value.replace(',', '.')
+            if normalized_input.startswith('.'):
+                normalized_input = '0' + normalized_input
+            
             if expected_format == "long/short":
-                if re.match(r'^(long|short)$', input_value, re.IGNORECASE):
-                    return input_value
+                if re.match(r'^(long|short)$', normalized_input, re.IGNORECASE):
+                    return normalized_input
                 else:
                     raise ValueError(
-                        "\033[31mPlease enter 'long' or 'short'.\033[0m"
+                        "\033[31mPlease enter 'long' or 'short'.\033[0m\n"
                         )
 
-            elif expected_format == "#.##":
-                if re.match(r'^\d+(\.\d{1,2})?$', input_value):
-                    return input_value
+            elif expected_format == "#.########":
+                if re.match(r'^\d+(\.\d{1,8})?$', normalized_input):
+                    return normalized_input
                 else:
                     raise ValueError(
-                        "\033[31mPlease enter a number with up to two decimal places, separated by dot.\033[0m"
+                        "\033[31mPlease enter a number with up to 8 decimal places, separated by dot.\033[0m\n"
+                        )
+                    
+            elif expected_format == "#.####":
+                if re.match(r'^\d+(\.\d{1,4})?$', normalized_input):
+                    return normalized_input
+                else:
+                    raise ValueError(
+                        "\033[31mPlease enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10\033[0m\n"
                         )
                     
             elif expected_format == "open/close/update":
-                if re.match(r'^(open|close|update)$', input_value, re.IGNORECASE):
-                    return input_value
+                if re.match(r'^(open|close|update)$', normalized_input, re.IGNORECASE):
+                    return normalized_input
                 else:
                     raise ValueError(                
-                        "\033[31mPlease enter 'open' or 'close' or 'update'.\033[0m"
+                        "\033[31mPlease enter 'open' or 'close' or 'update'.\033[0m\n"
                         )
                     
     except ValueError as e:
-        print(f"Invalid format:\n{e}")
+        print(f"Invalid format: {input_value}\n{e}Or type a valid command, for more details use 'help'")
         
 
 def navigate_away():
@@ -197,15 +223,15 @@ def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=N
     trade_details = {
         "type": ("long/short", type),
         "action": ("open/close/update", action),
-        "price": ("#.##", price),
-        "stop": ("#.##", stop),
-        "atr": ("#.##", atr)
+        "price": ("#.########", price),
+        "stop": ("#.########", stop),
+        "atr": ("#.####", atr)
     }
 
     for key in trade_details.keys():
         while trade_details[key][1] is None:
             prompt = f"Enter trade {key} ({trade_details[key][0]}): \n"
-            value = data_input_validation(prompt,trade_details[key][0],key,"trade")
+            value = input_format_validation(prompt,trade_details[key][0],key,"add")
             trade_details[key] = (trade_details[key][0], value)  
 
     type, action, price, stop, atr = (trade_details[k][1] for k in trade_details)
