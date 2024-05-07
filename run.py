@@ -24,12 +24,14 @@ def show_help():
     """
     Show help menu
     """
-    print("Help Information:")
+    print("\n\033[32mHelp Information:\033[0m")
     print("  - Type 'add' to add trade")
     print("  - Type 'check' to view stats")
     print("  - Type 'set' to open settings")
     print("  - Type 'help' to get Help")
-    print("  - Type 'exit' to quit the program.")
+    print("  - Type 'cancel' to cancel current job")
+    print("  - Type 'exit' to quit the program")
+    print("\nCommands described here can be ran from anywhere in the program")
 
 def check_stats(trading_book):
     """
@@ -75,40 +77,12 @@ def main_loop(trading_book):
     """
     Main loop initiating user input options
     """
-    print("\n\nWelcome to Trading Book System!\n")
+    print("\n\n\033[1m\033[38;5;208mWelcome to Trading Book System!\033[0m\n")
     show_help()
-    print("\n\nCall for 'help' if you need to see this menu again!")
     while True:
         cmd = get_input("Enter command: \n")
         if not process_command(cmd, trading_book):
             print("\033[31mUnknown command. Type 'help' for options.\033[0m")
-
-# def menu_check(prompt, context=None):
-#     """
-#     Handle user input and allow navigation or continuation based on context. Also process cancellation requests.
-#     """
-#     while True:
-#         input_value = get_input(prompt)
-#         if input_value == 'help':
-#             print(f"\n\nHelp for '{context}':")
-#             print(" - Type 'back' to return to where you were")
-#             print(" - Type 'cancel' to go back to main menu")
-#             input_value = get_input("")
-#             while True:
-#                 if input_value == 'back':
-#                     break 
-#             continue
-#         elif input_value == 'cancel':
-#             if navigate_away() is None:
-#                 return None
-#         elif input_value in ('check','set','help'):
-#             process_command(input_value, trading_book)
-#         elif input_value in ('exit','add'):
-#             if navigate_away() is None:
-#                 return None
-#         else:
-#             return input_value
-
 
 def menu_check(prompt, context=None):
     """
@@ -118,10 +92,11 @@ def menu_check(prompt, context=None):
     while True:
         input_value = get_input(prompt)
         if input_value == 'help' and context != None:
-            print(f"\n\nHelp for '{context}':")
+            print(f"\n\033[32mHelp for '{context}':\033[0m")
             print(" - Type 'back' to return to where you were")
-            print(" - Type 'cancel' to go back to main menu")
-            input_value = get_input("")
+            print(" - Type 'cancel' to cancel current job and go back to main menu")
+            print(" - Type 'help' again see general help")
+            input_value = get_input("Enter command: \n")
             context = None
 
         if input_value == 'back':
@@ -143,7 +118,7 @@ def navigate_away():
     """
     Prompt confirmation request when moving away from running job
     """
-    cancel = get_input("Navigating away will cancel the current job. Do you want to proceed? (y/n): \n")
+    cancel = get_input("\033[31mNavigating away will cancel the current job. Do you want to proceed? (y/n): \n\033[0m")
     if cancel == 'y':
         return None
     elif cancel == 'n':
@@ -156,7 +131,7 @@ def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=N
     """
     Log a trade with optional user interaction for details.
     """
-    print("\nStarting to log a trade...")
+    print("\n\033[32mStarting to log a trade...\033[0m")
     trade_details = {
         "type": ("long/short", type),
         "action": ("open/close/update", action),
@@ -175,7 +150,7 @@ def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=N
             trade_details[key] = (trade_details[key][0], value)  
 
     type, action, price, stop, atr = (trade_details[k][1] for k in trade_details)
-    print(f"Logging trade with user input: Type={type}, Action={action}, Value={price}, Stop={stop}, ATR={atr}")
+    print(f"\033[32mLogging trade with user input: Type={type}, Action={action}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
 
 
 def view_stats(trading_book):
