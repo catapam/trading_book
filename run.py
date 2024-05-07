@@ -1,4 +1,5 @@
 import gspread
+import re
 from google.oauth2.service_account import Credentials
 
 SCOPE = [
@@ -37,7 +38,8 @@ def show_help():
     print("  - Type 'cancel' to cancel current job")
     print("  - Type 'exit' to quit the program")
     print("\nCommands described here can be ran from anywhere in the program.")
-    print("Typing 'help' followed by another command will provide more details on the command.")
+    print("\n\033[32mTip:\033[0m")
+    print("Typing 'help' followed by another command will provide more details on that command.")
     print("Example: 'help add'")
 
 
@@ -127,6 +129,46 @@ def menu_check(prompt, context=None):
             return input_value
 
 
+def data_input_validation(prompt,expected_format,key,context=None):
+    """
+    Checks input data for formatting issues
+    """
+    try:
+        while True:
+            input_value = menu_check(prompt, context)
+            if input_value is None:
+                raise ValueError(
+                    f"Operation canceled during input for {key}."
+                    )
+
+            if expected_format == "long/short":
+                if re.match(r'^(long|short)$', input_value, re.IGNORECASE):
+                    return input_value
+                else:
+                    raise ValueError(
+                        "\033[31mPlease enter 'long' or 'short'.\033[0m"
+                        )
+
+            elif expected_format == "#.##":
+                if re.match(r'^\d+(\.\d{1,2})?$', input_value):
+                    return input_value
+                else:
+                    raise ValueError(
+                        "\033[31mPlease enter a number with up to two decimal places, separated by dot.\033[0m"
+                        )
+                    
+            elif expected_format == "open/close/update":
+                if re.match(r'^(open|close|update)$', input_value, re.IGNORECASE):
+                    return input_value
+                else:
+                    raise ValueError(                
+                        "\033[31mPlease enter 'open' or 'close' or 'update'.\033[0m"
+                        )
+                    
+    except ValueError as e:
+        print(f"Invalid format:\n{e}")
+        
+
 def navigate_away():
     """
     Prompt confirmation request when moving away from running job
@@ -163,16 +205,13 @@ def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=N
     for key in trade_details.keys():
         while trade_details[key][1] is None:
             prompt = f"Enter trade {key} ({trade_details[key][0]}): \n"
-            value = menu_check(prompt, "trade")
-            if value is None:
-                print(f"Operation canceled during input for {key}.")
-                return 
+            value = data_input_validation(prompt,trade_details[key][0],key,"trade")
             trade_details[key] = (trade_details[key][0], value)  
 
     type, action, price, stop, atr = (trade_details[k][1] for k in trade_details)
     print(f"\033[32mLogging trade with user input: Type={type}, Action={action}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
-
-
+       
+       
 def view_stats(trading_book):
     """
     Logic for viewing stats
