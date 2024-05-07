@@ -13,12 +13,17 @@ GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
 SHEET = GSPREAD_CLIENT.open('trading_book')
 trading_book = SHEET
 
+
 def exit_program():
     """
     Closes the program
     """
-    print("Exiting the program...")
-    exit()
+    leave = get_input("\033[0mAll non-saved data will be lost\n\033[31mWould you like to quit the program anyways? (y/n)\n\033[0m")
+    confirmation = yes_or_no(leave)
+    if confirmation is None:
+        print("\nClosing...\nSee you next time!")
+        exit()
+
 
 def show_help():
     """
@@ -31,7 +36,10 @@ def show_help():
     print("  - Type 'help' to get Help")
     print("  - Type 'cancel' to cancel current job")
     print("  - Type 'exit' to quit the program")
-    print("\nCommands described here can be ran from anywhere in the program")
+    print("\nCommands described here can be ran from anywhere in the program.")
+    print("Typing 'help' followed by another command will provide more details on the command.")
+    print("Example: 'help add'")
+
 
 def check_stats(trading_book):
     """
@@ -42,11 +50,13 @@ def check_stats(trading_book):
     for trade in trades:
         print(trade)
 
+
 def get_all_open_trades():
     """
     Get all open trades from database
     """
     # Placeholder
+
 
 def process_command(cmd, trading_book):
     """
@@ -66,12 +76,14 @@ def process_command(cmd, trading_book):
         return False 
     return True 
 
+
 def get_input(prompt):
     """
     Get user's input to the command line
     """
     user_input = input(f"\n\033[90m{prompt}\033[0m")
     return user_input.strip().lower()
+
 
 def main_loop(trading_book):
     """
@@ -83,6 +95,7 @@ def main_loop(trading_book):
         cmd = get_input("Enter command: \n")
         if not process_command(cmd, trading_book):
             print("\033[31mUnknown command. Type 'help' for options.\033[0m")
+
 
 def menu_check(prompt, context=None):
     """
@@ -119,13 +132,20 @@ def navigate_away():
     Prompt confirmation request when moving away from running job
     """
     cancel = get_input("\033[31mNavigating away will cancel the current job. Do you want to proceed? (y/n): \n\033[0m")
-    if cancel == 'y':
+    yes_or_no(cancel)
+    
+        
+def yes_or_no(input):
+    """
+    Create the yes and no menu option for confirmation requests
+    """
+    if input in ('y','yes','yeap','yeah','ya','ye'):
         return None
-    elif cancel == 'n':
+    elif input in ('n','no','nope','nah','not','dont'):
         return False
     else:
         print("\n\033[31mPlease use 'y' or 'n'.\033[0m")
-
+       
                 
 def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=None):
     """
@@ -159,11 +179,13 @@ def view_stats(trading_book):
     """
     print("Stats displayed successfully.")
 
+
 def manage_settings():
     """
     Logic for managing settings
     """
     # This going to be a class, just adding place holder
     print("Settings updated successfully.")
+
 
 main_loop(trading_book)
