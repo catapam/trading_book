@@ -12,8 +12,8 @@ CREDS = Credentials.from_service_account_file('creds.json')
 SCOPED_CREDS = CREDS.with_scopes(SCOPE)
 GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
 SHEET = GSPREAD_CLIENT.open('trading_book')
-trading_book = SHEET
 
+main_menu=["add","set","check","exit","help","cancel"]
 
 def exit_program():
     """
@@ -43,11 +43,11 @@ def show_help():
     print("Example: 'help add'")
 
 
-def check_stats(trading_book):
+def check_stats(SHEET):
     """
     Check all trades active and curent stats of the trading strategy
     """
-    trades = trading_book.get_all_open_trades()
+    trades = SHEET.get_all_open_trades()
     print("Current Trading Stats:")
     for trade in trades:
         print(trade)
@@ -60,21 +60,23 @@ def get_all_open_trades():
     # Placeholder
 
 
-def process_command(cmd, trading_book):
+def process_command(cmd,child_command=None):
     """
     Process commands from command line
     """
+    print(f"executing {cmd}({child_command})")
     if cmd == "exit":
-        exit_program()
+        exit_program(*child_command)
     elif cmd == "help":
-        show_help()
+        show_help(*child_command)
     elif cmd == "check":
-        check_stats(trading_book)
+        check_stats(SHEET,*child_command)
     elif cmd == "add":
-        log_trade(trading_book)
+        log_trade(SHEET,*child_command)
     elif cmd == "set":
-        manage_settings()
+        manage_settings(*child_command)
     else:
+        print("not a command")
         return False 
     return True 
 
@@ -87,7 +89,7 @@ def get_input(prompt):
     return user_input.strip().lower()
 
 
-def main_loop(trading_book):
+def main_loop(SHEET):
     """
     Main loop initiating user input options
     """
@@ -95,7 +97,7 @@ def main_loop(trading_book):
     show_help()
     while True:
         cmd = get_input("Enter command: \n")
-        if not process_command(cmd, trading_book):
+        if not multi_menu_call(cmd):
             print("\033[31mUnknown command. Type 'help' for options.\033[0m")
 
 
@@ -105,11 +107,28 @@ def main_loop(trading_book):
     # format_validation = input_format_validation(prompt,expected_format,key,context=None)
 
 
-def multi_menu_validation():
+def multi_menu_call(prompt,check=False):
     """
-    Checks user input for valid multi layer menu requests
+    Checks user input for valid multi layer menu requests. 
+    Check parameter is set as False by default, which runs the parent command request. 
+    Passing the child_commands as parameters on the parent_command, and returning None if invalid.
+    
+    Setting check=True on the function call, will skip execution and simply return a validation True/False 
     """
-    # placeholder
+    command_parts = prompt.split(maxsplit=1)
+    parent_command = command_parts[0] if command_parts else ""
+    child_command = command_parts[1].split() if len(command_parts) > 1 else []
+    
+    if parent_command in main_menu:
+        if check == False:
+            process_command(parent_command,child_command)
+        else:
+            return True
+    else:
+        if check == False:
+            return None
+        else:
+            return False
 
 def menu_check(prompt, context=None):
     """
@@ -133,12 +152,10 @@ def menu_check(prompt, context=None):
             if navigate_away() is None:
                 return None
         elif input_value in ('check','set','help'):
-            process_command(input_value, trading_book)
+            process_command(input_value)
         elif input_value in ('exit','add'):
-            original_input=input_value
             if navigate_away() is None:
                 return None
-            input_value=original_input
         else:
             return input_value
 
@@ -215,10 +232,11 @@ def yes_or_no(input):
         print("\n\033[31mPlease use 'y' or 'n'.\033[0m")
        
                 
-def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=None):
+def log_trade(SHEET, type=None, action=None, price=None, stop=None, atr=None):
     """
     Log a trade with optional user interaction for details.
     """
+    cmd="add"
     print("\n\033[32mStarting to log a trade...\033[0m")
     trade_details = {
         "type": ("long/short", type),
@@ -227,18 +245,18 @@ def log_trade(trading_book, type=None, action=None, price=None, stop=None, atr=N
         "stop": ("#.########", stop),
         "atr": ("#.####", atr)
     }
-
+    print(f"type: {type}, action: {action}, price: {price}, stop: {stop}, atr: {atr}")
     for key in trade_details.keys():
         while trade_details[key][1] is None:
             prompt = f"Enter trade {key} ({trade_details[key][0]}): \n"
-            value = input_format_validation(prompt,trade_details[key][0],key,"add")
+            value = input_format_validation(prompt,trade_details[key][0],key,cmd)
             trade_details[key] = (trade_details[key][0], value)  
 
     type, action, price, stop, atr = (trade_details[k][1] for k in trade_details)
     print(f"\033[32mLogging trade with user input: Type={type}, Action={action}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
        
        
-def view_stats(trading_book):
+def view_stats(SHEET):
     """
     Logic for viewing stats
     """
@@ -253,4 +271,4 @@ def manage_settings():
     print("Settings updated successfully.")
 
 
-main_loop(trading_book)
+main_loop(SHEET)
