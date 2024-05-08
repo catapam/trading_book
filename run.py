@@ -238,6 +238,7 @@ def log_trade(SHEET, type=None, action=None, price=None, stop=None, atr=None):
     """
     cmd="add"
     print("\n\033[32mStarting to log a trade...\033[0m")
+    
     trade_details = {
         "type": ("long/short", type),
         "action": ("open/close/update", action),
@@ -245,9 +246,12 @@ def log_trade(SHEET, type=None, action=None, price=None, stop=None, atr=None):
         "stop": ("#.########", stop),
         "atr": ("#.####", atr)
     }
+    
     print(f"type: {type}, action: {action}, price: {price}, stop: {stop}, atr: {atr}")
+    
     for key in trade_details.keys():
-        while trade_details[key][1] is None:
+        print(key)
+        if trade_details[key][1] is None:
             prompt = f"Enter trade {key} ({trade_details[key][0]}): \n"
             value = input_format_validation(prompt,trade_details[key][0],key,cmd)
             trade_details[key] = (trade_details[key][0], value)  
