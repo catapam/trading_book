@@ -13,7 +13,7 @@ SCOPED_CREDS = CREDS.with_scopes(SCOPE)
 GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
 SHEET = GSPREAD_CLIENT.open('trading_book')
 
-main_menu=["add","set","check","exit","help","cancel"]
+main_menu=["entry","set","check","exit","help","cancel"]
 
 def exit_program():
     """
@@ -31,7 +31,7 @@ def show_help():
     Show help menu
     """
     print("\n\033[32mHelp Information:\033[0m")
-    print("  - Type 'add' to add trade")
+    print("  - Type 'entry' to enter a trade")
     print("  - Type 'check' to view stats")
     print("  - Type 'set' to open settings")
     print("  - Type 'help' to get Help")
@@ -40,24 +40,7 @@ def show_help():
     print("\nCommands described here can be ran from anywhere in the program.")
     print("\n\033[32mTip:\033[0m")
     print("Typing 'help' followed by another command will provide more details on that command.")
-    print("Example: 'help add'")
-
-
-def check_stats(SHEET):
-    """
-    Check all trades active and curent stats of the trading strategy
-    """
-    trades = SHEET.get_all_open_trades()
-    print("Current Trading Stats:")
-    for trade in trades:
-        print(trade)
-
-
-def get_all_open_trades():
-    """
-    Get all open trades from database
-    """
-    # Placeholder
+    print("Example: 'help entry'")
 
 
 def process_command(cmd,child_command=None):
@@ -71,7 +54,7 @@ def process_command(cmd,child_command=None):
         show_help(*child_command)
     elif cmd == "check":
         check_stats(SHEET,*child_command)
-    elif cmd == "add":
+    elif cmd == "entry":
         log_trade(SHEET,*child_command)
     elif cmd == "set":
         manage_settings(*child_command)
@@ -97,15 +80,27 @@ def main_loop(SHEET):
     show_help()
     while True:
         cmd = get_input("Enter command: \n")
-        if not multi_menu_call(cmd):
-            print("\033[31mUnknown command. Type 'help' for options.\033[0m")
+        multi_menu_call(input_check(cmd))
+            
 
-
-# def input_check(prompt,expected_format,key,context=None):
-    # multi_menu_validation = menu_check(prompt, context)
-    # single_menu_validation = menu_check(prompt, context)
-    # format_validation = input_format_validation(prompt,expected_format,key,context=None)
-
+def input_check(prompt,format=None):
+    """
+    Check if input is menu or not and push for format validations
+    """
+    is_menu = multi_menu_call(prompt,True)
+    if is_menu is True:
+        return prompt
+    else:
+        if format is not None:
+            format_is_valid = format_validation(prompt,format)
+            if format_is_valid is None:
+                print(get_input("Enter a valid command or the correct format requested: \n"))
+            else:
+                return format_is_valid
+        else:
+           print("\033[31mUnknown command. Type 'help' for options.\033[0m")
+           return None
+            
 
 def multi_menu_call(prompt,check=False):
     """
@@ -113,9 +108,10 @@ def multi_menu_call(prompt,check=False):
     Check parameter is set as False by default, which runs the parent command request. 
     Passing the child_commands as parameters on the parent_command, and returning None if invalid.
     
-    Setting check=True on the function call, will skip execution and simply return a validation True/False 
+    Setting check=True on the function call, will skip execution and simply return a validation response
     """
-    command_parts = prompt.split(maxsplit=1)
+    string_prompt = str(prompt)
+    command_parts = string_prompt.split(maxsplit=1)
     parent_command = command_parts[0] if command_parts else ""
     child_command = command_parts[1].split() if len(command_parts) > 1 else []
     
@@ -129,6 +125,7 @@ def multi_menu_call(prompt,check=False):
             return None
         else:
             return False
+
 
 def menu_check(prompt, context=None):
     """
@@ -153,26 +150,20 @@ def menu_check(prompt, context=None):
                 return None
         elif input_value in ('check','set','help'):
             process_command(input_value)
-        elif input_value in ('exit','add'):
+        elif input_value in ('exit','entry'):
             if navigate_away() is None:
                 return None
         else:
             return input_value
 
 
-def input_format_validation(prompt,expected_format,key,context=None):
+def format_validation(prompt,expected_format):
     """
     Checks input data for formatting issues
     """
     try:
         while True:
-            input_value = menu_check(prompt, context)
-            if input_value is None:
-                raise ValueError(
-                    f"Operation canceled during input for {key}.\n"
-                    )
-
-            normalized_input = input_value.replace(',', '.')
+            normalized_input = prompt.replace(',', '.')
             if normalized_input.startswith('.'):
                 normalized_input = '0' + normalized_input
             
@@ -181,23 +172,23 @@ def input_format_validation(prompt,expected_format,key,context=None):
                     return normalized_input
                 else:
                     raise ValueError(
-                        "\033[31mPlease enter 'long' or 'short'.\033[0m\n"
+                        "Please enter 'long' or 'short'.\n"
                         )
 
             elif expected_format == "#.########":
                 if re.match(r'^\d+(\.\d{1,8})?$', normalized_input):
-                    return normalized_input
+                    return float(normalized_input)
                 else:
                     raise ValueError(
-                        "\033[31mPlease enter a number with up to 8 decimal places, separated by dot.\033[0m\n"
+                        "Please enter a number with up to 8 decimal places, separated by dot.\n"
                         )
                     
             elif expected_format == "#.####":
                 if re.match(r'^\d+(\.\d{1,4})?$', normalized_input):
-                    return normalized_input
+                    return float(normalized_input)
                 else:
                     raise ValueError(
-                        "\033[31mPlease enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10\033[0m\n"
+                        "Please enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10\n"
                         )
                     
             elif expected_format == "open/close/update":
@@ -205,11 +196,13 @@ def input_format_validation(prompt,expected_format,key,context=None):
                     return normalized_input
                 else:
                     raise ValueError(                
-                        "\033[31mPlease enter 'open' or 'close' or 'update'.\033[0m\n"
+                        "Please enter 'open' or 'close' or 'update'.\n"
                         )
                     
     except ValueError as e:
-        print(f"Invalid format: {input_value}\n{e}Or type a valid command, for more details use 'help'")
+        print("\n\033[31mInvalid format")
+        print(f"{e}\033[0m")
+        return None
         
 
 def navigate_away():
@@ -232,32 +225,34 @@ def yes_or_no(input):
         print("\n\033[31mPlease use 'y' or 'n'.\033[0m")
        
                 
-def log_trade(SHEET, type=None, action=None, price=None, stop=None, atr=None):
+def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
     """
     Log a trade with optional user interaction for details.
     """
-    cmd="add"
     print("\n\033[32mStarting to log a trade...\033[0m")
     
     trade_details = {
-        "type": ("long/short", type),
         "action": ("open/close/update", action),
+        "type": ("long/short", type),
         "price": ("#.########", price),
         "stop": ("#.########", stop),
         "atr": ("#.####", atr)
     }
     
-    print(f"type: {type}, action: {action}, price: {price}, stop: {stop}, atr: {atr}")
-    
     for key in trade_details.keys():
-        print(key)
+        format= trade_details[key][0]
+        if trade_details[key][1] is not None:
+            trade_details[key]= (format,format_validation(trade_details[key][1],format))
+            if trade_details[key][1] is None:
+                print(f"\n\033[31mInvalid format for {key}\033[0m")
+            
         if trade_details[key][1] is None:
-            prompt = f"Enter trade {key} ({trade_details[key][0]}): \n"
-            value = input_format_validation(prompt,trade_details[key][0],key,cmd)
-            trade_details[key] = (trade_details[key][0], value)  
+            prompt = get_input(f"Enter trade {key} ({format}): \n")
+            value = input_check(prompt, format)
+            trade_details[key] = (format, value)  
 
-    type, action, price, stop, atr = (trade_details[k][1] for k in trade_details)
-    print(f"\033[32mLogging trade with user input: Type={type}, Action={action}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
+    action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
+    print(f"\033[32mLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
        
        
 def view_stats(SHEET):
@@ -273,6 +268,13 @@ def manage_settings():
     """
     # This going to be a class, just adding place holder
     print("Settings updated successfully.")
-
+    
+    
+def check_stats(SHEET):
+    """
+    Check all trades active and curent stats of the trading strategy
+    """
+    print("Current Trading Stats:")
+        
 
 main_loop(SHEET)
