@@ -217,12 +217,12 @@ def format_validation(prompt,expected_format):
                         "Please enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10"
                         )
                     
-            elif expected_format == "open/close/update":
+            elif expected_format == "open/close/update/bulk":
                 if re.match(r'^(open|close|update)$', normalized_input, re.IGNORECASE):
                     return normalized_input
                 else:
                     raise ValueError(                
-                        "Please enter 'open' or 'close' or 'update'."
+                        "Please enter 'open', 'close', 'update' or 'bulk'."
                         )
                     
     except ValueError as e:
@@ -258,7 +258,7 @@ def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
     print("\n\033[32mStarting to log a trade...\033[0m")
     cmd="entry"
     trade_details = {
-        "action": ("open/close/update", action),
+        "action": ("open/close/update/bulk", action),
         "type": ("long/short", type),
         "price": ("#.########", price),
         "stop": ("#.########", stop),
@@ -266,29 +266,44 @@ def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
     }
     
     for key in trade_details.keys():
-        format= trade_details[key][0]
-        if trade_details[key][1] is not None:
-            trade_details[key]= (format,format_validation(trade_details[key][1],format))
+        if trade_details[key][1] != "bulk":
+            bulk = False
+        else:
+            bulk = True
+            break
+    
+    if not bulk:    
+        for key in trade_details.keys():
+            format= trade_details[key][0]
+            if trade_details[key][1] is not None:
+                trade_details[key]= (format,format_validation(trade_details[key][1],format))
+                if trade_details[key][1] is None:
+                    print(f"\n\033[31mInvalid format for {key}\033[0m")
+                
             if trade_details[key][1] is None:
-                print(f"\n\033[31mInvalid format for {key}\033[0m")
-            
-        if trade_details[key][1] is None:
-            while True:
-                prompt = get_input(f"Enter trade {key} ({format}): \n")
-                if not multi_menu_call(prompt,True):
-                    value = input_check(prompt, format)
-                    if value is None:
-                        continue
-                    else:
-                        trade_details[key] = (format, value)
+                while True:
+                    prompt = get_input(f"Enter trade {key} ({format}): \n")
+                    if prompt == "bulk":
+                        bulk = True
                         break
-                else:
-                    multi_menu_call(prompt,context=cmd)
-                    continue
-
-    action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
-    print(f"\033[32mLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
-       
+                    elif not multi_menu_call(prompt,True):
+                        value = input_check(prompt, format)
+                        if value is None:
+                            continue
+                        else:
+                            trade_details[key] = (format, value)
+                            break
+                    else:
+                        multi_menu_call(prompt,context=cmd)
+                        continue
+            if bulk:
+                break
+        if not bulk:       
+            action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
+            print(f"\033[32mLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
+    
+    if bulk: 
+        print("Hey, you selected bulk-mode import!")
        
 def view_stats(SHEET):
     """
