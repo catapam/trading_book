@@ -26,32 +26,58 @@ def exit_program():
         exit()
 
 
-def show_help():
+def show_help(context=None):
     """
     Show help menu
     """
-    print("\n\033[32mHelp Information:\033[0m")
-    print("  - Type 'entry' to enter a trade")
-    print("  - Type 'check' to view stats")
-    print("  - Type 'set' to open settings")
-    print("  - Type 'help' to get Help")
-    print("  - Type 'cancel' to cancel current job")
-    print("  - Type 'exit' to quit the program")
-    print("\nCommands described here can be ran from anywhere in the program.")
-    print("\n\033[32mTip:\033[0m")
-    print("Typing 'help' followed by another command will provide more details on that command.")
-    print("Example: 'help entry'")
-
-
-def process_command(cmd,child_command=None):
+    if context == "help":
+        context=None
+        
+    initial_context=context
+    
+    while True:
+        if context is None:
+            print("\n\033[32mHelp Information:\033[0m")
+            print("  - Type 'entry' to enter a trade")
+            print("  - Type 'check' to view stats")
+            print("  - Type 'set' to open settings")
+            print("  - Type 'help' to get Help")
+            print("  - Type 'cancel' to cancel current job")
+            print("  - Type 'exit' to quit the program")
+            print("\nCommands described here can be ran from anywhere in the program.")
+            print("\n\033[32mTip:\033[0m")
+            print("Typing 'help' followed by another command will provide more details on that command.")
+            print("Example: 'help entry'")
+            break
+        
+        else:
+            print(f"\n\033[32mHelp for '{context}':\033[0m")
+            #context specifics placeholder
+            print(" - Type 'back' to return to where you were")
+            print(" - Type 'cancel' to cancel current job and go back to main menu")
+            print(" - Type 'help' again to see general help")
+            cmd=get_input("Enter command: \n")
+            context=None
+            
+            if cmd == 'back':
+                context=initial_context
+                break
+            elif multi_menu_call(cmd,True):
+                multi_menu_call(cmd)
+                break          
+        
+        
+def process_command(cmd,child_command=None,context=None):
     """
     Process commands from command line
     """
-    print(f"executing {cmd}({child_command})")
     if cmd == "exit":
         exit_program(*child_command)
     elif cmd == "help":
-        show_help(*child_command)
+        if child_command:
+            show_help(*child_command)
+        else:
+            show_help(context)
     elif cmd == "check":
         check_stats(SHEET,*child_command)
     elif cmd == "entry":
@@ -94,15 +120,15 @@ def input_check(prompt,format=None):
         if format is not None:
             format_is_valid = format_validation(prompt,format)
             if format_is_valid is None:
-                print(get_input("Enter a valid command or the correct format requested: \n"))
+                return get_input("Enter a valid command or the correct format requested: \n")
             else:
                 return format_is_valid
         else:
-           print("\033[31mUnknown command. Type 'help' for options.\033[0m")
+           print("\n\033[31mUnknown command. Type 'help' for options.\033[0m")
            return None
             
 
-def multi_menu_call(prompt,check=False):
+def multi_menu_call(prompt,check=False,context=None):
     """
     Checks user input for valid multi layer menu requests. 
     Check parameter is set as False by default, which runs the parent command request. 
@@ -117,7 +143,7 @@ def multi_menu_call(prompt,check=False):
     
     if parent_command in main_menu:
         if check == False:
-            process_command(parent_command,child_command)
+            process_command(parent_command,child_command,context=context)
         else:
             return True
     else:
@@ -172,7 +198,7 @@ def format_validation(prompt,expected_format):
                     return normalized_input
                 else:
                     raise ValueError(
-                        "Please enter 'long' or 'short'.\n"
+                        "Please enter 'long' or 'short'."
                         )
 
             elif expected_format == "#.########":
@@ -180,7 +206,7 @@ def format_validation(prompt,expected_format):
                     return float(normalized_input)
                 else:
                     raise ValueError(
-                        "Please enter a number with up to 8 decimal places, separated by dot.\n"
+                        "Please enter a number with up to 8 decimal places, separated by dot."
                         )
                     
             elif expected_format == "#.####":
@@ -188,7 +214,7 @@ def format_validation(prompt,expected_format):
                     return float(normalized_input)
                 else:
                     raise ValueError(
-                        "Please enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10\n"
+                        "Please enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10"
                         )
                     
             elif expected_format == "open/close/update":
@@ -196,7 +222,7 @@ def format_validation(prompt,expected_format):
                     return normalized_input
                 else:
                     raise ValueError(                
-                        "Please enter 'open' or 'close' or 'update'.\n"
+                        "Please enter 'open' or 'close' or 'update'."
                         )
                     
     except ValueError as e:
@@ -230,7 +256,7 @@ def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
     Log a trade with optional user interaction for details.
     """
     print("\n\033[32mStarting to log a trade...\033[0m")
-    
+    cmd="entry"
     trade_details = {
         "action": ("open/close/update", action),
         "type": ("long/short", type),
@@ -247,9 +273,18 @@ def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
                 print(f"\n\033[31mInvalid format for {key}\033[0m")
             
         if trade_details[key][1] is None:
-            prompt = get_input(f"Enter trade {key} ({format}): \n")
-            value = input_check(prompt, format)
-            trade_details[key] = (format, value)  
+            while True:
+                prompt = get_input(f"Enter trade {key} ({format}): \n")
+                if not multi_menu_call(prompt,True):
+                    value = input_check(prompt, format)
+                    if value is None:
+                        continue
+                    else:
+                        trade_details[key] = (format, value)
+                        break
+                else:
+                    multi_menu_call(prompt,context=cmd)
+                    continue
 
     action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
     print(f"\033[32mLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
