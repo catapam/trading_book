@@ -177,7 +177,11 @@ def format_slash_separated_details(format):
         formatted_string = parts[0] + '.\n'
         formatted_regex = "^(" + parts[0] + ")$'"
 
-    return formatted_string,formatted_regex,None,False
+    return {'message': f"{formatted_string}",
+            'regex': f"{formatted_regex}",
+            'decimals': None,
+            'percentage': False,
+            'smart_search': True}
 
 
 def format_number_details(format):
@@ -212,7 +216,11 @@ def format_number_details(format):
         formatted_string += "Enter as a decimal or percentage (e.g., 0.10 or 10%).\n"
         formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
 
-    return formatted_string,formatted_regex,decimal_count,percentage
+    return {'message': f"{formatted_string}",
+            'regex': f"{formatted_regex}",
+            'decimals': f"{decimal_count}",
+            'percentage': f"{percentage}",
+            'smart_search': False}
 
 
 def format_validation(prompt,format):
@@ -232,8 +240,8 @@ def format_validation(prompt,format):
         if normalized_input.startswith('.'):
             normalized_input = '0' + normalized_input
 
-        if format_details[2] != None:
-            if format_details[3]:
+        if format_details['decimals'] != None:
+            if format_details['percentage']:
                 if normalized_input.endswith("%"):
                     normalized_input= normalized_input[:-1]
                     number = float(normalized_input)
@@ -242,12 +250,12 @@ def format_validation(prompt,format):
                     number = float(normalized_input)
             else:
                 number = float(normalized_input)
-            normalized_input = f"{number:.{format_details[2]}f}"
+            normalized_input = f"{number:.{format_details['decimals']}f}"
 
-        if re.match(format_details[1], normalized_input):
+        if re.match(format_details['regex'], normalized_input):
             return normalized_input
         else:
-            raise ValueError(f"Please enter a value in the format: {format_details[0]}")
+            raise ValueError(f"Please enter a value in the format: {format_details['message']}")
                     
     except ValueError as e:
         print(f"\n\033[31mInvalid format detected: {prompt}")
