@@ -13,7 +13,7 @@ SCOPED_CREDS = CREDS.with_scopes(SCOPE)
 GSPREAD_CLIENT = gspread.authorize(SCOPED_CREDS)
 SHEET = GSPREAD_CLIENT.open('trading_book')
 
-main_menu=["entry","set","check","exit","help","cancel"]
+main_menu=["entry","set","check","exit","help","cancel","back"]
 
 def exit_program():
     """
@@ -41,14 +41,12 @@ def show_help(context=None):
             print("  - Type 'entry' to enter a trade")
             print("  - Type 'check' to view stats")
             print("  - Type 'set' to open settings")
-            print("  - Type 'help' to get Help")
+            print("  - Type 'help' to get help")
+            print("  - Type 'back' to return to previous location")
             print("  - Type 'cancel' to cancel current job")
             print("  - Type 'exit' to quit the program")
-            print("\nCommands described here can be ran from anywhere in the program.")
-            print("\n\033[32mTip:\033[0m")
-            print("Typing 'help' followed by another command will provide more details on that command.")
-            print("Example: 'help entry'")
-            break
+            print("\nCommands described above can be ran from anywhere in the program.")
+            return False
         
         else:
             print(f"\n\033[32mHelp for '{context}':\033[0m")
@@ -57,14 +55,14 @@ def show_help(context=None):
             print(" - Type 'cancel' to cancel current job and go back to main menu")
             print(" - Type 'help' again to see general help")
             cmd=get_input("Enter command: \n")
-            context=None
             
             if cmd == 'back':
-                context=initial_context
-                break
+                return False
             elif multi_menu_call(cmd,True):
-                multi_menu_call(cmd)
-                break          
+                multi_menu_call(cmd,context="help")
+            else:
+                print(f"\n\033[31mNot a valid command!\033[0m")
+                continue     
         
         
 def process_command(cmd,child_command=None,context=None):
@@ -74,33 +72,34 @@ def process_command(cmd,child_command=None,context=None):
     validator=True
     
     if cmd == "exit":
-        exit_program(*child_command)
+        validator = exit_program(*child_command)
     elif cmd == "check":
-        check_stats(*child_command)
+        validator = check_stats(*child_command)
     elif cmd == "help":
         if child_command:
-            show_help(*child_command)
+            validator = show_help(*child_command)
         else:
-            show_help(context)  
+            validator = show_help(context)  
     else:
         if not context:
             if cmd == "entry":
-                log_trade(*child_command)
+                validator = log_trade(*child_command)
             elif cmd == "set":
-                manage_settings(*child_command)
+                validator = manage_settings(*child_command)
             elif cmd == "cancel":
-                print("There are no processes to cancel at the moment.")    
-        elif context:
+                validator = navigate_away()  
+            elif cmd == "back":
+                print("\033[31m\nThere is no where to go back to, you are in home page.\033[0m")
+                print("Type 'help' to see menu options.")  
+        else:
             if navigate_away() is True:
-                print("\nLet's continue with the new command then!")
+                print("\nLet's continue with a new command!")
                 if cmd == "entry":
-                    log_trade(*child_command)
+                    validator = log_trade(*child_command)
                 elif cmd == "set":
-                    manage_settings(*child_command)
+                    validator = manage_settings(*child_command)
             else:
                 validator=False
-        else:
-            validator=False
                         
     return validator 
 
@@ -123,13 +122,10 @@ def input_check(prompt,format=None):
     else:
         if format is not None:
             format_is_valid = format_validation(prompt,format)
-            if format_is_valid is None:
-                return get_input("Enter a valid command or the correct format requested: \n")
-            else:
-                return format_is_valid
+            return format_is_valid
         else:
            print("\n\033[31mUnknown command. Type 'help' for options.\033[0m")
-            
+         
 
 def multi_menu_call(prompt,check=False,context=None):
     """
@@ -140,10 +136,21 @@ def multi_menu_call(prompt,check=False,context=None):
     Setting check=True on the function call, will skip execution and simply return a validation response
     """
     string_prompt = str(prompt)
-    command_parts = string_prompt.split(maxsplit=1)
-    parent_command = command_parts[0] if command_parts else ""
-    child_command = command_parts[1].split() if len(command_parts) > 1 else []
+    words = string_prompt.split()
+
+    parent_command = ""
+    child_command = []
     
+    if 'help' in words:
+        parent_command = "help"
+    
+    for word in words:
+        if word in main_menu:
+            if parent_command == "":
+                parent_command = word
+            elif word != "help":
+                child_command.append(word)
+                       
     if parent_command in main_menu:
         validator = True
         if check == False:
@@ -197,7 +204,7 @@ def format_validation(prompt,expected_format):
                         )
                     
     except ValueError as e:
-        print("\n\033[31mInvalid format")
+        print(f"\n\033[31mInvalid format detected: {prompt}")
         print(f"{e}\033[0m")
         
 
@@ -254,8 +261,8 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             format= trade_details[key][0]
             if trade_details[key][1] is not None:
                 trade_details[key]= (format,format_validation(trade_details[key][1],format))
-                if trade_details[key][1] is None:
-                    print(f"\n\033[31mInvalid format for {key}\033[0m")
+                # if trade_details[key][1] is None:
+                #     print(f"\n\033[31mInvalid format for {key}\033[0m")
                 
             if trade_details[key][1] is None:
                 while True:
@@ -309,13 +316,6 @@ def check_stats():
     """
     print("Current Trading Stats:")
     
-
-def cancel_process():
-    """
-    Logic for viewing stats
-    """
-    print("Cancelled successfully.")
-    
     
 def main_loop():
     """
@@ -323,6 +323,9 @@ def main_loop():
     """
     print("\n\n\033[1m\033[38;5;208mWelcome to Trading Book System!\033[0m\n")
     show_help()
+    print("\n\033[32mTip:\033[0m")
+    print("Typing 'help' followed by another command will provide more details on that command.")
+    print("Example: 'help entry' or 'entry open short'")
     while True:
         cmd = get_input("Enter command: \n")
         multi_menu_call(input_check(cmd))
