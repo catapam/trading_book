@@ -21,7 +21,7 @@ def exit_program():
     """
     leave = get_input("\033[0mAll non-saved data will be lost\n\033[31mWould you like to quit the program anyways? (y/n)\n\033[0m")
     confirmation = yes_or_no(leave)
-    if confirmation is None:
+    if confirmation is True:
         print("\nClosing...\nSee you next time!")
         exit()
 
@@ -71,23 +71,38 @@ def process_command(cmd,child_command=None,context=None):
     """
     Process commands from command line
     """
+    validator=True
+    
     if cmd == "exit":
         exit_program(*child_command)
+    elif cmd == "check":
+        check_stats(*child_command)
     elif cmd == "help":
         if child_command:
             show_help(*child_command)
         else:
-            show_help(context)
-    elif cmd == "check":
-        check_stats(SHEET,*child_command)
-    elif cmd == "entry":
-        log_trade(SHEET,*child_command)
-    elif cmd == "set":
-        manage_settings(*child_command)
+            show_help(context)  
     else:
-        print("not a command")
-        return False 
-    return True 
+        if not context:
+            if cmd == "entry":
+                log_trade(*child_command)
+            elif cmd == "set":
+                manage_settings(*child_command)
+            elif cmd == "cancel":
+                print("There are no processes to cancel at the moment.")    
+        elif context:
+            if navigate_away() is True:
+                print("\nLet's continue with the new command then!")
+                if cmd == "entry":
+                    log_trade(*child_command)
+                elif cmd == "set":
+                    manage_settings(*child_command)
+            else:
+                validator=False
+        else:
+            validator=False
+                        
+    return validator 
 
 
 def get_input(prompt):
@@ -96,18 +111,7 @@ def get_input(prompt):
     """
     user_input = input(f"\n\033[90m{prompt}\033[0m")
     return user_input.strip().lower()
-
-
-def main_loop(SHEET):
-    """
-    Main loop initiating user input options
-    """
-    print("\n\n\033[1m\033[38;5;208mWelcome to Trading Book System!\033[0m\n")
-    show_help()
-    while True:
-        cmd = get_input("Enter command: \n")
-        multi_menu_call(input_check(cmd))
-            
+           
 
 def input_check(prompt,format=None):
     """
@@ -125,7 +129,6 @@ def input_check(prompt,format=None):
                 return format_is_valid
         else:
            print("\n\033[31mUnknown command. Type 'help' for options.\033[0m")
-           return None
             
 
 def multi_menu_call(prompt,check=False,context=None):
@@ -142,46 +145,14 @@ def multi_menu_call(prompt,check=False,context=None):
     child_command = command_parts[1].split() if len(command_parts) > 1 else []
     
     if parent_command in main_menu:
+        validator = True
         if check == False:
-            process_command(parent_command,child_command,context=context)
-        else:
-            return True
+            if process_command(parent_command,child_command,context=context) is False:
+                validator = False
     else:
-        if check == False:
-            return None
-        else:
-            return False
-
-
-def menu_check(prompt, context=None):
-    """
-    Handle user input and allow navigation or continuation based on context. Also process cancellation requests.
-    """
-    initial_context=context
-    while True:
-        input_value = get_input(prompt)
-        if input_value == 'help' and context != None:
-            print(f"\n\033[32mHelp for '{context}':\033[0m")
-            print(" - Type 'back' to return to where you were")
-            print(" - Type 'cancel' to cancel current job and go back to main menu")
-            print(" - Type 'help' again see general help")
-            input_value = get_input("Enter command: \n")
-            context = None
-
-        if input_value == 'back':
-            context=initial_context
-            continue
-        elif input_value == 'cancel':
-            if navigate_away() is None:
-                return None
-        elif input_value in ('check','set','help'):
-            process_command(input_value)
-        elif input_value in ('exit','entry'):
-            if navigate_away() is None:
-                return None
-        else:
-            return input_value
-
+        validator = False
+    
+    return validator
 
 def format_validation(prompt,expected_format):
     """
@@ -228,7 +199,6 @@ def format_validation(prompt,expected_format):
     except ValueError as e:
         print("\n\033[31mInvalid format")
         print(f"{e}\033[0m")
-        return None
         
 
 def navigate_away():
@@ -236,26 +206,35 @@ def navigate_away():
     Prompt confirmation request when moving away from running job
     """
     cancel = get_input("\033[31mNavigating away will cancel the current job. Do you want to proceed? (y/n): \n\033[0m")
-    yes_or_no(cancel)
+    return yes_or_no(cancel)
     
         
 def yes_or_no(input):
     """
     Create the yes and no menu option for confirmation requests
     """
-    if input in ('y','yes','yeap','yeah','ya','ye'):
-        return None
-    elif input in ('n','no','nope','nah','not','dont'):
-        return False
-    else:
-        print("\n\033[31mPlease use 'y' or 'n'.\033[0m")
+    try:
+        while True:
+            if input in ('y','yes','yeap','yeah','ya','ye','yy','yees','yess'):
+                return True
+            elif input in ('n','no','nope','nah','not','dont','nn','nno','noo'):
+                return False
+            else:
+                raise ValueError(
+                "\n\033[31mPlease use 'y' or 'n'.\033[0m"
+                )
+    except ValueError as e:
+        print(f"{e}")
+        
        
                 
-def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
+def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     """
     Log a trade with optional user interaction for details.
     """
     print("\n\033[32mStarting to log a trade...\033[0m")
+    stop_process = False
+    bulk = False
     cmd="entry"
     trade_details = {
         "action": ("open/close/update/bulk", action),
@@ -266,9 +245,7 @@ def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
     }
     
     for key in trade_details.keys():
-        if trade_details[key][1] != "bulk":
-            bulk = False
-        else:
+        if trade_details[key][1] == "bulk":
             bulk = True
             break
     
@@ -286,26 +263,32 @@ def log_trade(SHEET, action=None, type=None, price=None, stop=None, atr=None):
                     if prompt == "bulk":
                         bulk = True
                         break
-                    elif not multi_menu_call(prompt,True):
-                        value = input_check(prompt, format)
-                        if value is None:
-                            continue
-                        else:
-                            trade_details[key] = (format, value)
-                            break
                     else:
-                        multi_menu_call(prompt,context=cmd)
-                        continue
-            if bulk:
+                        if multi_menu_call(prompt,True,context=cmd) is False:
+                            value = input_check(prompt, format)
+                            if value is None:
+                                continue
+                            else:
+                                trade_details[key] = (format, value)
+                                break
+                        else:
+                            if multi_menu_call(prompt,context=cmd) is False:
+                                continue
+                            else:
+                                stop_process = True
+                                break
+                    
+            if bulk or stop_process:
                 break
-        if not bulk:       
+            
+        if not bulk or not stop_process:       
             action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
-            print(f"\033[32mLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
+            print(f"\033[32m\nLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
     
     if bulk: 
         print("Hey, you selected bulk-mode import!")
        
-def view_stats(SHEET):
+def view_stats():
     """
     Logic for viewing stats
     """
@@ -320,11 +303,29 @@ def manage_settings():
     print("Settings updated successfully.")
     
     
-def check_stats(SHEET):
+def check_stats():
     """
     Check all trades active and curent stats of the trading strategy
     """
     print("Current Trading Stats:")
+    
+
+def cancel_process():
+    """
+    Logic for viewing stats
+    """
+    print("Cancelled successfully.")
+    
+    
+def main_loop():
+    """
+    Main loop initiating user input options
+    """
+    print("\n\n\033[1m\033[38;5;208mWelcome to Trading Book System!\033[0m\n")
+    show_help()
+    while True:
+        cmd = get_input("Enter command: \n")
+        multi_menu_call(input_check(cmd))
         
 
-main_loop(SHEET)
+main_loop()
