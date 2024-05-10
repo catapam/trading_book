@@ -150,6 +150,8 @@ def multi_menu_call(prompt,check=False,context=None):
                 parent_command = word
             elif word != "help":
                 child_command.append(word)
+        elif word != "help":
+            child_command.append(word)
                        
     if parent_command in main_menu:
         validator = True
@@ -161,47 +163,44 @@ def multi_menu_call(prompt,check=False,context=None):
     
     return validator
 
+             
 def format_validation(prompt,expected_format):
     """
     Checks input data for formatting issues
     """
-    try:
-        while True:
-            normalized_input = prompt.replace(',', '.')
-            if normalized_input.startswith('.'):
-                normalized_input = '0' + normalized_input
-            
-            if expected_format == "long/short":
-                if re.match(r'^(long|short)$', normalized_input, re.IGNORECASE):
-                    return normalized_input
-                else:
-                    raise ValueError(
-                        "Please enter 'long' or 'short'."
-                        )
+    formats = {
+    "open/close/update/bulk": {"format":"'open', 'close', 'update' or 'bulk'.",
+                               "regex":'^(open|close|update|bulk)$', 
+                               "auto_validation":True},
+    
+    "long/short": {"format":"'long' or 'short'",
+                   "regex":'^(long|short)$',
+                   "auto_validation":True},
+    
+    "#.########": {"format":"a number with up to 8 decimal places, separated by dot.",
+                   "regex":'^\\d+(\\.\\d{1,8})?$',  
+                   "auto_validation":False},
+    
+    "#.####": {"format":"a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10",
+               "regex":'^\\d+(\\.\\d{1,4})?$',
+               "auto_validation":False}
+}
 
-            elif expected_format == "#.########":
-                if re.match(r'^\d+(\.\d{1,8})?$', normalized_input):
-                    return float(normalized_input)
-                else:
-                    raise ValueError(
-                        "Please enter a number with up to 8 decimal places, separated by dot."
-                        )
-                    
-            elif expected_format == "#.####":
-                if re.match(r'^\d+(\.\d{1,4})?$', normalized_input):
-                    return float(normalized_input)
-                else:
-                    raise ValueError(
-                        "Please enter a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10"
-                        )
-                    
-            elif expected_format == "open/close/update/bulk":
-                if re.match(r'^(open|close|update)$', normalized_input, re.IGNORECASE):
+        # "template":{"format":None,
+        #             "regex":None,
+        #             "auto_validation":False},
+    
+    try:
+        normalized_input = prompt.replace(',', '.')
+        if normalized_input.startswith('.'):
+            normalized_input = '0' + normalized_input
+
+        for format_key, details in formats.items():
+            if expected_format == format_key:
+                if re.match(details["regex"], normalized_input):
                     return normalized_input
                 else:
-                    raise ValueError(                
-                        "Please enter 'open', 'close', 'update' or 'bulk'."
-                        )
+                    raise ValueError(f"Please enter a value in the format: {details['format']}")
                     
     except ValueError as e:
         print(f"\n\033[31mInvalid format detected: {prompt}")
@@ -254,15 +253,13 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     for key in trade_details.keys():
         if trade_details[key][1] == "bulk":
             bulk = True
-            break
-    
+            break            
+            
     if not bulk:    
         for key in trade_details.keys():
             format= trade_details[key][0]
             if trade_details[key][1] is not None:
                 trade_details[key]= (format,format_validation(trade_details[key][1],format))
-                # if trade_details[key][1] is None:
-                #     print(f"\n\033[31mInvalid format for {key}\033[0m")
                 
             if trade_details[key][1] is None:
                 while True:
@@ -273,7 +270,7 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
                     else:
                         if multi_menu_call(prompt,True,context=cmd) is False:
                             value = input_check(prompt, format)
-                            if value is None:
+                            if not value:
                                 continue
                             else:
                                 trade_details[key] = (format, value)
