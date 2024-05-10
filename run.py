@@ -171,13 +171,13 @@ def format_slash_separated_details(format):
     parts = format.split('/')
 
     if len(parts) > 1:
-        formatted_string = ', '.join(parts[:-1]) + ' or ' + parts[-1] + '.'
+        formatted_string = ', '.join(parts[:-1]) + ' or ' + parts[-1] + '.\n'
         formatted_regex = "^(" + "|".join(parts) + ")$"
     else:
-        formatted_string = parts[0] + '.'
+        formatted_string = parts[0] + '.\n'
         formatted_regex = "^(" + parts[0] + ")$'"
 
-    return formatted_string,formatted_regex
+    return formatted_string,formatted_regex,None,False
 
 
 def format_number_details(format):
@@ -186,6 +186,9 @@ def format_number_details(format):
     Decimal % is also processed.
     """
     percentage = False
+
+    if not all(c in '#.%' for c in format):
+        return
     
     if format.endswith("%"):
         format=format[:-1]
@@ -195,68 +198,61 @@ def format_number_details(format):
         
     if decimal_point_index != -1:
         decimal_count = len(format) - decimal_point_index - 1
+    else:
+        decimal_count = 0
 
-    if not decimal_count:
-        formatted_string = 'only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.'
+    if decimal_count == 0:
+        formatted_string = 'only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.\n'
         formatted_regex = "^\d+$"
     else:
-        formatted_string = f"numbers with up to {decimal_count} decimal places are accepted."
+        formatted_string = f"numbers with up to {decimal_count} decimal places are accepted.\n"
         formatted_regex = r"^\d+(\.\d{1," + str(decimal_count) + "})?$"
 
     if percentage:
-        formatted_string += " Enter as a decimal or percentage (e.g., 0.10 or 10%)."
+        formatted_string += "Enter as a decimal or percentage (e.g., 0.10 or 10%).\n"
         formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
 
-    return formatted_string,formatted_regex,decimal_count
+    return formatted_string,formatted_regex,decimal_count,percentage
 
-             
-def format_validation(prompt,expected_format):
+
+def format_validation(prompt,format):
     """
     Checks input data for formatting issues
     """
-    formats = {
-    "open/close/update/bulk": {"format":"'open', 'close', 'update' or 'bulk'.",
-                               "regex":'^(open|close|update|bulk)$'},
-    
-    "long/short": {"format":"'long' or 'short'",
-                   "regex":'^(long|short)$'},
-    
-    "#.########": {"format":"a number with up to 8 decimal places, separated by dot.",
-                   "regex":'^\\d+(\\.\\d{1,8})?$',
-                   "decimal_places": 8},
-    
-    "#.####": {"format":"a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10",
-               "regex":'^\\d+(\\.\\d{1,4})?$',
-               "decimal_places": 4}
-    }
-
-    
-
-        # "template":{"format":None,
-        #             "regex":None,
-        #             "auto_validation":False,
-        #             "decimal_places": 4},
-    
     try:
+        format_details=[]
+        
+        if not format_number_details(format):
+            format_details = format_slash_separated_details(format)
+        else:
+            format_details = format_number_details(format)
+    
         normalized_input = prompt.replace(',', '.')
+           
         if normalized_input.startswith('.'):
             normalized_input = '0' + normalized_input
 
-        for format_key, details in formats.items():
-            if expected_format == format_key:
-                if "decimal_places" in details:
-                        number = float(normalized_input)
-                        normalized_input = f"{number:.{details['decimal_places']}f}"
-
-                if re.match(details["regex"], normalized_input):
-                    return normalized_input
+        if format_details[2] != None:
+            if format_details[3]:
+                if normalized_input.endswith("%"):
+                    normalized_input= normalized_input[:-1]
+                    number = float(normalized_input)
+                    number = number / 100
                 else:
-                    raise ValueError(f"Please enter a value in the format: {details['format']}")
+                    number = float(normalized_input)
+            else:
+                number = float(normalized_input)
+            normalized_input = f"{number:.{format_details[2]}f}"
+
+        if re.match(format_details[1], normalized_input):
+            return normalized_input
+        else:
+            raise ValueError(f"Please enter a value in the format: {format_details[0]}")
                     
     except ValueError as e:
         print(f"\n\033[31mInvalid format detected: {prompt}")
         print(f"{e}\033[0m")
-        
+    
 
 def navigate_away():
     """
@@ -281,8 +277,7 @@ def yes_or_no(input):
                 "\n\033[31mPlease use 'y' or 'n'.\033[0m"
                 )
     except ValueError as e:
-        print(f"{e}")
-        
+        print(f"{e}")       
        
                 
 def log_trade(action=None, type=None, price=None, stop=None, atr=None):
@@ -381,3 +376,5 @@ def main_loop():
         
 
 main_loop()
+# while True:
+#     format_number_details(get_input(f"Enter format: \n"))
