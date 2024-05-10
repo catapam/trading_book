@@ -163,6 +163,52 @@ def multi_menu_call(prompt,check=False,context=None):
     
     return validator
 
+
+def format_slash_separated_details(format):
+    """
+    Split the string into parts based on '/'
+    """
+    parts = format.split('/')
+
+    if len(parts) > 1:
+        formatted_string = ', '.join(parts[:-1]) + ' or ' + parts[-1] + '.'
+        formatted_regex = "^(" + "|".join(parts) + ")$"
+    else:
+        formatted_string = parts[0] + '.'
+        formatted_regex = "^(" + parts[0] + ")$'"
+
+    return formatted_string,formatted_regex
+
+
+def format_number_details(format):
+    """
+    Split the string into parts based on #.## formating received. 
+    Decimal % is also processed.
+    """
+    percentage = False
+    
+    if format.endswith("%"):
+        format=format[:-1]
+        percentage = True
+
+    decimal_point_index = format.find('.')
+        
+    if decimal_point_index != -1:
+        decimal_count = len(format) - decimal_point_index - 1
+
+    if not decimal_count:
+        formatted_string = 'only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.'
+        formatted_regex = "^\d+$"
+    else:
+        formatted_string = f"numbers with up to {decimal_count} decimal places are accepted."
+        formatted_regex = r"^\d+(\.\d{1," + str(decimal_count) + "})?$"
+
+    if percentage:
+        formatted_string += " Enter as a decimal or percentage (e.g., 0.10 or 10%)."
+        formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
+
+    return formatted_string,formatted_regex,decimal_count
+
              
 def format_validation(prompt,expected_format):
     """
@@ -183,6 +229,8 @@ def format_validation(prompt,expected_format):
                "regex":'^\\d+(\\.\\d{1,4})?$',
                "decimal_places": 4}
     }
+
+    
 
         # "template":{"format":None,
         #             "regex":None,
@@ -251,7 +299,7 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
         "type": ("long/short", type),
         "price": ("#.########", price),
         "stop": ("#.########", stop),
-        "atr": ("#.####", atr)
+        "atr": ("#.####%", atr)
     }
     
     for key in trade_details.keys():
