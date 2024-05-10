@@ -170,25 +170,24 @@ def format_validation(prompt,expected_format):
     """
     formats = {
     "open/close/update/bulk": {"format":"'open', 'close', 'update' or 'bulk'.",
-                               "regex":'^(open|close|update|bulk)$', 
-                               "auto_validation":True},
+                               "regex":'^(open|close|update|bulk)$'},
     
     "long/short": {"format":"'long' or 'short'",
-                   "regex":'^(long|short)$',
-                   "auto_validation":True},
+                   "regex":'^(long|short)$'},
     
     "#.########": {"format":"a number with up to 8 decimal places, separated by dot.",
-                   "regex":'^\\d+(\\.\\d{1,8})?$',  
-                   "auto_validation":False},
+                   "regex":'^\\d+(\\.\\d{1,8})?$',
+                   "decimal_places": 8},
     
     "#.####": {"format":"a number with up to 4 decimal places, separated by dot.\nThis is supposed to be a decimal notation. Example: 10% >> 0.10",
                "regex":'^\\d+(\\.\\d{1,4})?$',
-               "auto_validation":False}
-}
+               "decimal_places": 4}
+    }
 
         # "template":{"format":None,
         #             "regex":None,
-        #             "auto_validation":False},
+        #             "auto_validation":False,
+        #             "decimal_places": 4},
     
     try:
         normalized_input = prompt.replace(',', '.')
@@ -197,6 +196,10 @@ def format_validation(prompt,expected_format):
 
         for format_key, details in formats.items():
             if expected_format == format_key:
+                if "decimal_places" in details:
+                        number = float(normalized_input)
+                        normalized_input = f"{number:.{details['decimal_places']}f}"
+
                 if re.match(details["regex"], normalized_input):
                     return normalized_input
                 else:
@@ -242,6 +245,7 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     stop_process = False
     bulk = False
     cmd="entry"
+    
     trade_details = {
         "action": ("open/close/update/bulk", action),
         "type": ("long/short", type),
@@ -285,7 +289,7 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             if bulk or stop_process:
                 break
             
-        if not bulk or not stop_process:       
+        if stop_process or not bulk:       
             action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
             print(f"\033[32m\nLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
     
