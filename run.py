@@ -75,20 +75,20 @@ def process_command(cmd,child_command=None,context=None):
     print(context)
     
     if cmd == "exit":
-        validator = exit_program(*child_command)
+        validator = exit_program(*child_command) if child_command else exit_program()
     elif cmd == "check":
-        validator = check_stats(*child_command)
+        validator = check_stats(*child_command) if child_command else check_stats()
     elif cmd == "help":
         if child_command:
             validator = show_help(*child_command)
         else:
-            validator = show_help(context)  
+            validator = show_help(context) if context else show_help()
     else:
         if not context:
             if cmd == "entry":
-                validator = log_trade(*child_command)
+                validator = log_trade(*child_command) if child_command else log_trade()
             elif cmd == "set":
-                validator = manage_settings(*child_command)
+                validator = manage_settings(*child_command) if child_command else manage_settings()
             elif cmd == "cancel":
                 validator = navigate_away()  
             elif cmd == "back":
@@ -98,9 +98,9 @@ def process_command(cmd,child_command=None,context=None):
             if navigate_away() is True:
                 print("\nLet's continue with a new command!")
                 if cmd == "entry":
-                    validator = log_trade(*child_command)
+                    validator = log_trade(*child_command) if child_command else log_trade()
                 elif cmd == "set":
-                    validator = manage_settings(*child_command)
+                    validator = manage_settings(*child_command) if child_command else manage_settings()
             else:
                 validator=False
                         
@@ -119,6 +119,9 @@ def input_check(prompt,format=None):
     """
     Check if input is menu or not and push for format validations
     """
+    if prompt is None:
+        return None
+    
     is_menu = multi_menu_call(prompt,True)
     if is_menu is True:
         return prompt
@@ -138,33 +141,34 @@ def multi_menu_call(prompt,check=False,context=None):
     
     Setting check=True on the function call, will skip execution and simply return a validation response
     """
-    string_prompt = str(prompt)
-    words = string_prompt.split()
+    if prompt:
+        string_prompt = str(prompt)
+        words = string_prompt.split()
 
-    parent_command = ""
-    child_command = []
-    
-    if 'help' in words:
-        parent_command = "help"
-    
-    for word in words:
-        if word in main_menu:
-            if parent_command == "":
-                parent_command = word
+        parent_command = ""
+        child_command = []
+        
+        if 'help' in words:
+            parent_command = "help"
+        
+        for word in words:
+            if word in main_menu:
+                if parent_command == "":
+                    parent_command = word
+                elif word != "help":
+                    child_command.append(word)
             elif word != "help":
                 child_command.append(word)
-        elif word != "help":
-            child_command.append(word)
-                       
-    if parent_command in main_menu:
-        validator = True
-        if check == False:
-            if process_command(parent_command,child_command,context=context) is False:
-                validator = False
-    else:
-        validator = False
-    
-    return validator
+                        
+        if parent_command in main_menu:
+            validator = True
+            if check == False:
+                if process_command(parent_command,child_command,context=context) is False:
+                    validator = False
+        else:
+            validator = False
+        
+        return validator
 
 
 def format_slash_separated_details(format):
@@ -238,6 +242,9 @@ def format_validation(prompt,format, silent=False):
     """
     Checks input data for formatting issues
     """
+    if prompt is None:
+        return None if silent else print("Invalid input: None provided")
+    
     try:
         format_details = format_category_check(format)
         normalized_input = prompt.replace(',', '.')
@@ -337,13 +344,13 @@ def reconstruct_trade_details(validated, invalidated, original_data):
                 trade_details[key] = (trade_details[key][0], value)
     
     for value in invalidated:
-        if ':' in value:
+        if value and ':' in value:
             key, val = value.split(':')
-            if key in trade_details:
+            if key in trade_details and trade_details[key][1] is None:
                 trade_details[key] = (trade_details[key][0], val)
     
     for value in invalidated:
-        if ':' not in value: 
+        if value and ':' not in value: 
             for key, (fmt, val) in trade_details.items():
                 if val is None and format_validation(value, fmt,True):
                     trade_details[key] = (fmt, value)
@@ -376,7 +383,6 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             
     if not bulk: 
         trade_details = auto_validator(trade_details)
-        print(trade_details)
 
         for key,(fmt,value) in trade_details.items():
             if value is not None:
@@ -385,24 +391,28 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             else:
                 while True:
                     prompt = get_input(f"Enter trade {key} ({fmt}): \n")
-                    if prompt == "bulk":
-                        bulk = True
-                        break
-                    else:
-                        if multi_menu_call(prompt,True,context=cmd) is False:
-                            value = input_check(prompt, fmt)
-                            if not value:
-                                continue
-                            else:
-                                trade_details[key] = (fmt, value)
-                                break
+                    words=prompt.split()
+                    if len(words) == 1:
+                        if prompt == "bulk":
+                            bulk = True
+                            break
                         else:
-                            if multi_menu_call(prompt,context=cmd) is False:
-                                continue
+                            if multi_menu_call(prompt,True,context=cmd) is False:
+                                value = input_check(prompt, fmt)
+                                if not value:
+                                    continue
+                                else:
+                                    trade_details[key] = (fmt, value)
+                                    break
                             else:
-                                stop_process = True
-                                break
-                        
+                                if multi_menu_call(prompt,context=cmd) is False:
+                                    continue
+                                else:
+                                    stop_process = True
+                                    break
+                    elif len(words) == 0:
+                        print("placeholder")
+                                 
             if bulk or stop_process:
                 break
             
@@ -447,7 +457,8 @@ def main_loop():
     print("Example: 'help entry' or 'entry open short'")
     while True:
         cmd = get_input("Enter command: \n")
-        multi_menu_call(input_check(cmd))
+        if cmd:
+            multi_menu_call(input_check(cmd))
         
 
 main_loop()
