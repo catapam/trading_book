@@ -330,18 +330,21 @@ def reconstruct_trade_details(validated, invalidated, original_data):
     
     for key, (fmt, _) in original_data.items():
         trade_details[key] = (fmt, None)
+    print(trade_details)
     
     for item in validated:
         if ':' in item:
             key, value = item.split(':')
             if key in trade_details:
                 trade_details[key] = (trade_details[key][0], value)
+    print(trade_details)
     
     for value in invalidated:
         if ':' in value:
             key, val = value.split(':')
             if key in trade_details:
                 trade_details[key] = (trade_details[key][0], val)
+    print(trade_details)
     
     for value in invalidated:
         if ':' not in value: 
@@ -349,7 +352,8 @@ def reconstruct_trade_details(validated, invalidated, original_data):
                 if val is None and format_validation(value, fmt,True):
                     trade_details[key] = (fmt, value)
                     break
-    
+
+    print(trade_details)
     return trade_details
         
                 
@@ -452,10 +456,10 @@ def main_loop():
         multi_menu_call(input_check(cmd))
         
 
-main_loop()
-# auto_validator({"action": ("open/close/update/bulk", "long"),
-#     "type": ("long/short", "open"),
-#     "price": ("#.########", "stop:10"),
-#     "stop": ("#.########", "15"),
-#     "atr": ("#.####%", "1%")
-# })
+# main_loop()
+auto_validator({"action": ("open/close/update/bulk", "long"),
+    "type": ("long/short", "open"),
+    "price": ("#.########", "stop:10"),
+    "stop": ("#.########", "15"),
+    "atr": ("#.####%", "1%")
+})
