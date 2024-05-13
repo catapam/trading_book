@@ -299,6 +299,7 @@ def auto_validator(data):
     """
     Auto-validate data against formatting, fixing possible syntax errors on user entry
     """
+    print(data)
     auto_validate_formats = []
     validated_values = []
     invalidated_values = []
@@ -314,7 +315,7 @@ def auto_validator(data):
         for fmt_key, format in auto_validate_formats:
             validated_value = format_validation(actual_value, format, True)
             if validated_value:
-                validated_values.append(f"{key}:{validated_value}")
+                validated_values.append(f"{fmt_key}:{validated_value}")
                 is_validated = True
                 break 
 
@@ -333,13 +334,13 @@ def reconstruct_trade_details(validated, invalidated, original_data):
     for item in validated:
         if ':' in item:
             key, value = item.split(':')
-            if key in trade_details and trade_details[key][0] is not None:
+            if key in trade_details:
                 trade_details[key] = (trade_details[key][0], value)
     
     for value in invalidated:
         if ':' in value:
             key, val = value.split(':')
-            if key in trade_details and trade_details[key][1] is None:
+            if key in trade_details:
                 trade_details[key] = (trade_details[key][0], val)
     
     for value in invalidated:
@@ -376,8 +377,8 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             
     if not bulk: 
         trade_details = auto_validator(trade_details)
+        print(trade_details)
 
-         
         for key in trade_details.keys():
             format= trade_details[key][0]
             if trade_details[key][1] is not None:
@@ -451,10 +452,10 @@ def main_loop():
         multi_menu_call(input_check(cmd))
         
 
-# main_loop()
-auto_validator({"action": ("open/close/update/bulk", "long"),
-    "type": ("long/short", "open"),
-    "price": ("#.########", "15"),
-    "stop": ("#.########", "10"),
-    "atr": ("#.####%", "1%")
-})
+main_loop()
+# auto_validator({"action": ("open/close/update/bulk", "long"),
+#     "type": ("long/short", "open"),
+#     "price": ("#.########", "stop:10"),
+#     "stop": ("#.########", "15"),
+#     "atr": ("#.####%", "1%")
+# })
