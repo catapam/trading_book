@@ -299,7 +299,6 @@ def auto_validator(data):
     """
     Auto-validate data against formatting, fixing possible syntax errors on user entry
     """
-    print(data)
     auto_validate_formats = []
     validated_values = []
     invalidated_values = []
@@ -322,7 +321,7 @@ def auto_validator(data):
         if not is_validated and actual_value not in invalidated_values:
             invalidated_values.append(actual_value)
 
-    reconstruct_trade_details(validated_values,invalidated_values,data)
+    return reconstruct_trade_details(validated_values,invalidated_values,data)
 
 
 def reconstruct_trade_details(validated, invalidated, original_data):
@@ -330,21 +329,18 @@ def reconstruct_trade_details(validated, invalidated, original_data):
     
     for key, (fmt, _) in original_data.items():
         trade_details[key] = (fmt, None)
-    print(trade_details)
     
     for item in validated:
         if ':' in item:
             key, value = item.split(':')
             if key in trade_details:
                 trade_details[key] = (trade_details[key][0], value)
-    print(trade_details)
     
     for value in invalidated:
         if ':' in value:
             key, val = value.split(':')
             if key in trade_details:
                 trade_details[key] = (trade_details[key][0], val)
-    print(trade_details)
     
     for value in invalidated:
         if ':' not in value: 
@@ -353,7 +349,6 @@ def reconstruct_trade_details(validated, invalidated, original_data):
                     trade_details[key] = (fmt, value)
                     break
 
-    print(trade_details)
     return trade_details
         
                 
@@ -383,24 +378,23 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
         trade_details = auto_validator(trade_details)
         print(trade_details)
 
-        for key in trade_details.keys():
-            format= trade_details[key][0]
-            if trade_details[key][1] is not None:
-                trade_details[key]= (format,format_validation(trade_details[key][1],format))      
+        for key,(fmt,value) in trade_details.items():
+            if value is not None:
+                trade_details[key]= (fmt,format_validation(value,fmt))      
                                         
             else:
                 while True:
-                    prompt = get_input(f"Enter trade {key} ({format}): \n")
+                    prompt = get_input(f"Enter trade {key} ({fmt}): \n")
                     if prompt == "bulk":
                         bulk = True
                         break
                     else:
                         if multi_menu_call(prompt,True,context=cmd) is False:
-                            value = input_check(prompt, format)
+                            value = input_check(prompt, fmt)
                             if not value:
                                 continue
                             else:
-                                trade_details[key] = (format, value)
+                                trade_details[key] = (fmt, value)
                                 break
                         else:
                             if multi_menu_call(prompt,context=cmd) is False:
@@ -456,10 +450,10 @@ def main_loop():
         multi_menu_call(input_check(cmd))
         
 
-# main_loop()
-auto_validator({"action": ("open/close/update/bulk", "long"),
-    "type": ("long/short", "open"),
-    "price": ("#.########", "stop:10"),
-    "stop": ("#.########", "15"),
-    "atr": ("#.####%", "1%")
-})
+main_loop()
+# auto_validator({"action": ("open/close/update/bulk", "long"),
+#     "type": ("long/short", "open"),
+#     "price": ("#.########", "stop:10"),
+#     "stop": ("#.########", "15"),
+#     "atr": ("#.####%", "1%")
+# })
