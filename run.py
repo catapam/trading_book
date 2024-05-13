@@ -70,6 +70,9 @@ def process_command(cmd,child_command=None,context=None):
     Process commands from command line
     """
     validator=True
+    print(cmd)
+    print(child_command)
+    print(context)
     
     if cmd == "exit":
         validator = exit_program(*child_command)
@@ -181,7 +184,7 @@ def format_slash_separated_details(format):
             'regex': f"{formatted_regex}",
             'decimals': None,
             'percentage': False,
-            'smart_search': True}
+            'auto_validate': True}
 
 
 def format_number_details(format):
@@ -220,21 +223,23 @@ def format_number_details(format):
             'regex': f"{formatted_regex}",
             'decimals': f"{decimal_count}",
             'percentage': f"{percentage}",
-            'smart_search': False}
+            'auto_validate': False}
 
 
-def format_validation(prompt,format):
+def format_category_check(format):
+    if not format_number_details(format):
+        format_details = format_slash_separated_details(format)
+    else:
+        format_details = format_number_details(format)
+    return format_details
+
+
+def format_validation(prompt,format, silent=False):
     """
     Checks input data for formatting issues
     """
     try:
-        format_details=[]
-        
-        if not format_number_details(format):
-            format_details = format_slash_separated_details(format)
-        else:
-            format_details = format_number_details(format)
-    
+        format_details = format_category_check(format)
         normalized_input = prompt.replace(',', '.')
            
         if normalized_input.startswith('.'):
@@ -258,8 +263,10 @@ def format_validation(prompt,format):
             raise ValueError(f"Please enter a value in the format: {format_details['message']}")
                     
     except ValueError as e:
-        print(f"\n\033[31mInvalid format detected: {prompt}")
-        print(f"{e}\033[0m")
+        if not silent:
+            print(f"\n\033[31mInvalid format detected: {prompt}")
+            print(f"{e}\033[0m")
+        return None
     
 
 def navigate_away():
@@ -287,6 +294,34 @@ def yes_or_no(input):
     except ValueError as e:
         print(f"{e}")       
        
+
+def auto_validator(data):
+    """
+    Auto-validate data against formatting, fixing possible syntax errors on user entry
+    """
+    values = []
+    auto_validate_formats = []
+    validated_values = []
+    invalidated_values = []
+
+    for key, (format, actual_value) in data.items():
+        if format_category_check(format)["auto_validate"]:
+            auto_validate_formats.append((key, format))
+            
+    all_values = [(key, actual_value) for key, (_, actual_value) in data.items()]
+    
+    for key, actual_value in all_values:
+        is_validated = False
+        for fmt_key, format in auto_validate_formats:
+            validated_value = format_validation(actual_value, format, True)
+            if validated_value:
+                validated_values.append(f"{key}:{validated_value}")
+                is_validated = True
+                break 
+
+        if not is_validated and actual_value not in invalidated_values:
+            invalidated_values.append(actual_value)
+        
                 
 def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     """
@@ -304,19 +339,21 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
         "stop": ("#.########", stop),
         "atr": ("#.####%", atr)
     }
+
+    auto_validator(trade_details)
     
     for key in trade_details.keys():
         if trade_details[key][1] == "bulk":
             bulk = True
             break            
             
-    if not bulk:    
+    if not bulk:  
         for key in trade_details.keys():
             format= trade_details[key][0]
             if trade_details[key][1] is not None:
-                trade_details[key]= (format,format_validation(trade_details[key][1],format))
-                
-            if trade_details[key][1] is None:
+                trade_details[key]= (format,format_validation(trade_details[key][1],format))      
+                                        
+            else:
                 while True:
                     prompt = get_input(f"Enter trade {key} ({format}): \n")
                     if prompt == "bulk":
@@ -336,7 +373,7 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
                             else:
                                 stop_process = True
                                 break
-                    
+                        
             if bulk or stop_process:
                 break
             
@@ -346,6 +383,7 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     
     if bulk: 
         print("Hey, you selected bulk-mode import!")
+
        
 def view_stats():
     """
@@ -384,5 +422,9 @@ def main_loop():
         
 
 main_loop()
-# while True:
-#     format_number_details(get_input(f"Enter format: \n"))
+# auto_validator({"action": ("open/close/update/bulk", "long"),
+#     "type": ("long/short", "open"),
+#     "price": ("#.########", "15"),
+#     "stop": ("#.########", "10"),
+#     "atr": ("#.####%", "1%")
+# })
