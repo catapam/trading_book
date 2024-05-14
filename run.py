@@ -19,7 +19,7 @@ SHEET = GSPREAD_CLIENT.open('trading_book')
 main_menu=["entry","set","check","exit","help","cancel","back"]
 
 
-def color_methods(cls):
+def style_methods(cls):
     """
     This function creates a method that prints messages in the given color
     """
@@ -30,35 +30,52 @@ def color_methods(cls):
     return cls
 
 
-@color_methods
-class ColorOutput:
+@style_methods
+class StyleOutput:
     """
     Class to print messages in colored format based on ANSI escape codes.
     """
     colors={"red":"\033[31m",
             "green":"\033[32m",
-            "yellow":"\033[33m",
-            "gray":"\033[90m",
+            "cyan":"\033[96m",
+            "gray":"\033[2m",
             "orange":"\033[1m\033[38;5;208m",
-            "none":"\033[0m"
+            "bold":"\033[1m",
+            "italic":"\033[3m",
+            "dim":"\033[2m",
+            "underscore":"\033[4m",
+            "none":"\033[0m",
+            "title":"\n\n\n\033[1m\033[32m   ",
+            "green_background":"\033[1m\033[42m\033[97m",
+            "error":"\033[1m\033[41m\033[97m"
             }
 
 
-red = ColorOutput.red
-green = ColorOutput.green
-yellow = ColorOutput.yellow
-gray = ColorOutput.gray
-orange = ColorOutput.orange
-     
+red = StyleOutput.red
+green = StyleOutput.green
+bold = StyleOutput.bold
+italic = StyleOutput.italic
+underscore = StyleOutput.underscore
+dim = StyleOutput.dim
+GREETING = StyleOutput.orange
+TITLE = StyleOutput.title
+PATH = StyleOutput.gray
+QUESTION = StyleOutput.cyan
+SUCCESS= StyleOutput.green_background
+ERROR= StyleOutput.error    
 
 def exit_program():
     """
     Closes the program
     """
-    leave = get_input(red("All non-saved data will be lost\nWould you like to quit the program anyways? (y/n)\n"))
+    # print("\n")
+    print(ERROR("\nAll non-saved data will be lost"))
+    leave = get_input(italic(red("Would you like to quit the program anyways? (y/n)\n")))
     confirmation = yes_or_no(leave)
+    
     if confirmation is True:
-        print("\nClosing...\nSee you next time!")
+        print("\nClosing...")
+        print(GREETING("See you next time!"))
         exit()
 
 
@@ -71,7 +88,7 @@ def show_help(context=None):
     
     while True:
         if context is None:
-            print(green("\nHelp Information:"))
+            print(TITLE("Help Information:"))
             print("  - Type 'entry' to enter a trade")
             print("  - Type 'check' to view stats")
             print("  - Type 'set' to open settings")
@@ -83,19 +100,19 @@ def show_help(context=None):
             return False
         
         else:
-            print(green(f"\nHelp for '{context}':"))
+            print(TITLE(f"Help for '{context}':"))
             #context specifics placeholder
             print(" - Type 'back' to return to where you were")
             print(" - Type 'cancel' to cancel current job and go back to main menu")
             print(" - Type 'help' again to see general help")
-            cmd=get_input("Enter command: \n")
+            cmd=get_input("\nEnter command: \n")
             
             if cmd == 'back':
                 return False
             elif multi_menu_call(cmd,True):
                 multi_menu_call(cmd,context="help")
             else:
-                print(red("\nNot a valid command!"))
+                print(italic(red("\nNot a valid command!")))
                 continue     
         
         
@@ -104,9 +121,6 @@ def process_command(cmd,child_command=None,context=None):
     Process commands from command line
     """
     validator=True
-    print(cmd)
-    print(child_command)
-    print(context)
     
     if cmd == "exit":
         validator = exit_program(*child_command) if child_command else exit_program()
@@ -126,11 +140,11 @@ def process_command(cmd,child_command=None,context=None):
             elif cmd == "cancel":
                 validator = navigate_away()  
             elif cmd == "back":
-                print(red("\nThere is no where to go back to, you are in home page."))
+                print(italic(red("\nThere is no where to go back to, you are in home page.")))
                 print("Type 'help' to see menu options.")  
         else:
             if navigate_away() is True:
-                print("\nLet's continue with a new command!")
+                print(SUCCESS("\nLet's continue with a new command!"))
                 if cmd == "entry":
                     validator = log_trade(*child_command) if child_command else log_trade()
                 elif cmd == "set":
@@ -145,7 +159,7 @@ def get_input(prompt):
     """
     Get user's input to the command line
     """
-    user_input = input(gray(f"\n{prompt}"))
+    user_input = input(QUESTION(f"{prompt}"))
     return user_input.strip().lower()
            
 
@@ -164,7 +178,8 @@ def input_check(prompt,format=None):
             format_is_valid = format_validation(prompt,format)
             return format_is_valid
         else:
-           print(red("\nUnknown command. Type 'help' for options."))
+            print("\n")
+            print(ERROR("Invalid command."))
          
 
 def multi_menu_call(prompt,check=False,context=None):
@@ -305,8 +320,8 @@ def format_validation(prompt,format, silent=False):
                     
     except ValueError as e:
         if not silent:
-            print(red(f"\nInvalid format detected: {prompt}"))
-            print(red(e))
+            print(ERROR(f"\nInvalid format detected: {prompt}"))
+            print(ERROR(e))
         return None
     
 
@@ -314,7 +329,7 @@ def navigate_away():
     """
     Prompt confirmation request when moving away from running job
     """
-    cancel = get_input(red("Navigating away will cancel the current job. Do you want to proceed? (y/n):"))
+    cancel = get_input(italic(red("\nNavigating away will cancel the current job. Do you want to proceed? (y/n):\n")))
     return yes_or_no(cancel)
     
         
@@ -322,18 +337,15 @@ def yes_or_no(input):
     """
     Create the yes and no menu option for confirmation requests
     """
-    try:
-        while True:
-            if input in ('y','yes','yeap','yeah','ya','ye','yy','yees','yess'):
-                return True
-            elif input in ('n','no','nope','nah','not','dont','nn','nno','noo'):
-                return False
-            else:
-                raise ValueError(
-                red("\nPlease use 'y' or 'n'.")
-                )
-    except ValueError as e:
-        print(f"{e}")       
+    while True:
+        if input in ('y','yes','yeap','yeah','ya','ye','yy','yees','yess'):
+            return True
+        elif input in ('n','no','nope','nah','not','dont','nn','nno','noo'):
+            return False
+        else:
+            print(ERROR("\nPlease use 'y' or 'n'."))
+            input = get_input("\nEnter response:\n")
+            continue
        
 
 def auto_validator(data):
@@ -401,7 +413,8 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     """
     Log a trade with optional user interaction for details.
     """
-    print(green("\nStarting to log a trade..."))
+    print(TITLE("Starting to log a trade..."))
+    stop_process=False
     bulk = False
     validation_need = True
     key_none = []
@@ -438,8 +451,10 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             
             while key_none:
                 key = key_none[0]
-                fmt, value = trade_details[key]
-                prompt = get_input(f"Enter trade {key} ({fmt}): \n")
+                fmt, _ = trade_details[key]
+
+                print(PATH(f"\n./entry {' '.join(delete_none_values(trade_details,1))}"))
+                prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
                 words = prompt.split()
 
                 if "bulk" in words:
@@ -457,14 +472,20 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
                         print("Too many arguments input, any extra arguments will be ignored.")
                         continue
                 else:
-                    multi_menu_call(prompt, context=cmd)
-                    break
+                    if not multi_menu_call(prompt, context=cmd):
+                        stop_process=False
+                    else:
+                        stop_process=True 
+                        validation_need = False
+                        break 
 
-            key_none, trade_details = key_validator(trade_details)
+            if not stop_process:
+                key_none, trade_details = key_validator(trade_details)
 
-            if not key_none:
-               validation_need = False 
-                
+                if not key_none:
+                    validation_need = False 
+            else:
+                break   
         else:
             break
         
@@ -472,7 +493,17 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
         print("Hey, you selected bulk-mode import!")
     else:
         action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
-        print(green(f"\nTrade logged with user input: {action} {type} {price} {stop} {atr}"))
+        print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {type} {price} {stop} {atr}"))
+
+
+def delete_none_values(trade_details,num):
+    """
+    Deletes any None values from an array
+    """
+    trade_values = [value[num] for value in trade_details.values()]
+    filtered_trade_values = [str(item) for item in trade_values if item is not None]
+    
+    return filtered_trade_values    
 
        
 def view_stats():
@@ -501,15 +532,17 @@ def main_loop():
     """
     Main loop initiating user input options
     """
-    print(orange("\n\nWelcome to Trading Book System!\n"))
+    print(underscore(GREETING("\n\n\nWelcome to Trading Book System!")))
     show_help()
-    print(green("\nTip:"))
+    print(underscore(green("\nTip:")))
     print("Typing 'help' followed by another command will provide more details on that command.")
     print("Example: 'help entry' or 'entry open short'")
     while True:
-        cmd = get_input("Enter command: \n")
+        cmd = get_input("\nEnter a valid command or 'help': \n")
         if cmd:
-            multi_menu_call(input_check(cmd))
+            if not multi_menu_call(input_check(cmd)):
+                print(ERROR(""))
+
         
 if __name__ == "__main__":
     main_loop()
