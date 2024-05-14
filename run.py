@@ -330,7 +330,7 @@ def auto_validator(data):
 
     trade_details = reconstruct_trade_details(validated_values,invalidated_values,data)
     for key, (format, actual_value) in trade_details.items():
-        trade_details[key]=(format,format_validation(actual_value, format))
+        trade_details[key]=(format,format_validation(actual_value, format,True))
 
     return trade_details
 
@@ -368,7 +368,6 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     Log a trade with optional user interaction for details.
     """
     print("\n\033[32mStarting to log a trade...\033[0m")
-    stop_process = False
     bulk = False
     validation_need = True
     key_none = []
@@ -381,7 +380,18 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
         "stop": ("#.########", stop),
         "atr": ("#.####%", atr)
     }
+
+    def key_validator(trade_details):
+        trade_details = auto_validator(trade_details)
         
+        for key,(fmt,value) in trade_details.items():        
+            if value is not None:
+                trade_details[key]= (fmt,f"{key}:{value}") 
+            else:
+                key_none.append(key)
+
+        return key_none, trade_details
+            
     while True:
         key_none=[]
         
@@ -390,40 +400,37 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
             break 
 
         if validation_need:
-            trade_details = auto_validator(trade_details)
-
-            for key,(fmt,value) in trade_details.items():        
-                if value is not None:
-                    trade_details[key]= (fmt,f"{key}:{value}") 
-                else:
-                    key_none.append(key)
+            key_none, trade_details = key_validator(trade_details)
             
             while key_none:
                 key = key_none[0]
                 fmt, value = trade_details[key]
                 prompt = get_input(f"Enter trade {key} ({fmt}): \n")
                 words = prompt.split()
-                
+                print(words)
                 if "bulk" in words:
                     bulk = True
                     break
                 
                 if not multi_menu_call(prompt, True, context=cmd):
-                    if len(words) <= len(key_none) + 1: 
+                    if len(words) <= len(key_none) + 1:
                         for word,key in zip(words,key_none):
                             fmt = trade_details[key][0]
                             trade_details[key] = (fmt,word)
-                            key_none.remove(key)
-                            words.remove(word)
+                        key_none=[]
+                        words=[]
                     else:
                         print("Too many arguments input, any extra arguments will be ignored.")
-                    break
+                        continue
                 else:
-                    continue
+                    multi_menu_call(prompt, context=cmd)
+                    break
+
+            key_none, trade_details = key_validator(trade_details)
 
             if not key_none:
-                validation_need=False
-                trade_details = auto_validator(trade_details)
+               validation_need = False 
+                
         else:
             break
         
@@ -432,72 +439,6 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     else:
         action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
         print(f"\033[32m\nLogging trade with user input: {action} {type} {price} {stop} {atr}\033[0m")
-
-
-
-      
-    # for key in trade_details.keys():
-    #     if trade_details[key][1] == "bulk":
-    #         bulk = True
-    #         break            
-            
-    # if not bulk:
-    #     trade_details = auto_validator(trade_details)
-    #     for key,(fmt,value) in trade_details.items():
-    #         if value is not None:
-    #             trade_details[key]= (fmt,format_validation(value,fmt))      
-                                        
-    #         else:
-    #             while True:
-    #                 prompt = get_input(f"Enter trade {key} ({fmt}): \n")
-    #                 words=prompt.split()
-    #                 restart_loop = False
-                    
-    #                 if len(words) == 1:
-    #                     if prompt == "bulk":
-    #                         bulk = True
-    #                         break
-    #                     else:
-    #                         if multi_menu_call(prompt,True,context=cmd) is False:
-    #                             value = input_check(prompt, fmt)
-    #                             if not value:
-    #                                 continue
-    #                             else:
-    #                                 trade_details[key] = (fmt, value)
-    #                                 restart_loop = True
-    #                         else:
-    #                             if multi_menu_call(prompt,context=cmd) is False:
-    #                                 continue
-    #                             else:
-    #                                 stop_process = True
-    #                                 break
-    #                 elif len(words) > 1:
-    #                     if "bulk" not in words:
-    #                         for word in words:
-    #                             updated = False
-    #                             for key, (fmt, value) in trade_details.items():
-    #                                 if not value:
-    #                                     trade_details[key] = (fmt, format_validation(word, fmt))
-    #                                     updated = True
-    #                                     break
-    #                             if updated:
-    #                                 restart_loop = True
-    #                     else:
-    #                         bulk = True
-    #                         break
-                        
-    #     if restart_loop:
-    #         continue 
-                                
-    #     if bulk or stop_process:
-    #         break
-        
-    #     if stop_process or not bulk:       
-    #         action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
-    #         print(f"\033[32m\nLogging trade with user input: Action={action}, Type={type}, Value={price}, Stop={stop}, ATR={atr}\033[0m")
-
-    # if bulk: 
-    #     print("Hey, you selected bulk-mode import!")
 
        
 def view_stats():
