@@ -356,14 +356,12 @@ class InputValidation:
             if word in main_menu:
                 if not parent_command:
                     parent_command = word
-                elif parent_command == "help":
+                elif parent_command == "help" and not child_command:
                     child_command = word
-                    break
                 else:
                     self.print_command_error(word, parent_command, child_command)
             else:
                 child_command.append(word)
-                continue
         return parent_command, child_command
 
     def print_command_error(self, word, parent_command, child_command):
@@ -584,15 +582,15 @@ def show_help(context=None):
             print(" - Type 'back' to return to where you were")
             print(" - Type 'cancel' to cancel current job and go back to main menu")
             print(" - Type 'help' again to see general help")
-            cmd=get_input("\nEnter command: \n")
-            input_validate= InputValidation(cmd)
+            print(PATH(f"\n./help {context}"))
+            cmd=get_input("Enter command: \n")
+            input_validate= InputValidation(cmd,context="help")
             
-            if cmd == 'back':
+            if cmd == 'back' or cmd == 'cancel':
                 return False
             elif input_validate.multi_menu_call(silent=True):
-                input_validate.multi_menu_call(cmd,context="help")
+                input_validate.multi_menu_call(cmd)
             else:
-                print(italic(red("\nNot a valid command!")))
                 continue     
         
         
@@ -609,7 +607,6 @@ def process_command(cmd,child_command=None,context=None):
         validator = check_stats(*child_command) if child_command else check_stats()
     elif cmd == "help":
         if child_command:
-            print(child_command)
             validator = show_help(*child_command)
         else:
             validator = show_help(context) if context else show_help()
@@ -620,7 +617,7 @@ def process_command(cmd,child_command=None,context=None):
             elif cmd == "set":
                 validator = manage_settings(*child_command) if child_command else manage_settings()
             elif cmd == "cancel":
-                validator = navigate_away()  
+                print(italic(red("\nThere is noyhing to cancel at the moment.")))
             elif cmd == "back":
                 print(italic(red("\nThere is no where to go back to, you are in home page.")))
         else:
@@ -630,6 +627,8 @@ def process_command(cmd,child_command=None,context=None):
                     validator = log_trade(*child_command) if child_command else log_trade()
                 elif cmd == "set":
                     validator = manage_settings(*child_command) if child_command else manage_settings()
+                else:
+                    validator = True
             else:
                 validator=False
                         
