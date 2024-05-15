@@ -137,13 +137,28 @@ def multi_menu_call(prompt,check=False,context=None):
         
         if 'help' in words:
             parent_command = "help"
+
+        if parent_command == "":
+            for i, word in enumerate(words):
+                if word.startswith("./"):
+                    possible_command = word[2:]
+                    if possible_command:
+                        parent_command = possible_command
+                        words.pop(i)
+                        break
+                    else:
+                        continue
+
+        words = [word[2:] if word.startswith("./") else word for word in words]
         
         for word in words:
             if word in main_menu:
                 if parent_command == "":
                     parent_command = word
-                elif word != "help":
+                elif parent_command == "help":
                     child_command.append(word)
+                elif not check:
+                    print(ERROR(f"\nYou cannot request 2 main menu actions at once\nThe menu call to '{parent_command} {child_command}' will be executed\nThe call to '{word}' will be ignored\nIf you want to execute '{word}', 'cancel' the current job and start over again with '{word}'"))
             elif word != "help":
                 child_command.append(word)
                         
@@ -231,6 +246,8 @@ def format_validation(prompt,format, silent=False):
     """
     if prompt is None:
         return None if silent else print("Invalid input: None provided")
+
+    print(prompt)
     
     try:
         format_details = format_category_check(format)
@@ -512,7 +529,7 @@ def process_command(cmd,child_command=None,context=None):
     else:
         if not context:
             if cmd == "entry":
-                validator = log_trade(*child_command) if child_command else log_trade()
+                validator = log_trade(child_command) if child_command else log_trade()
             elif cmd == "set":
                 validator = manage_settings(*child_command) if child_command else manage_settings()
             elif cmd == "cancel":
@@ -524,7 +541,7 @@ def process_command(cmd,child_command=None,context=None):
             if navigate_away() is True:
                 print(SUCCESS("\nLet's continue with a new command!"))
                 if cmd == "entry":
-                    validator = log_trade(*child_command) if child_command else log_trade()
+                    validator = log_trade(child_command) if child_command else log_trade()
                 elif cmd == "set":
                     validator = manage_settings(*child_command) if child_command else manage_settings()
             else:
