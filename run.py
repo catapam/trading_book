@@ -125,83 +125,7 @@ def pro_tips():
 # General end
 
 
-# Validations start
-def input_check(prompt,format=None):
-    """
-    Check if input is menu or not and push for format validations
-    """
-    if prompt is None:
-        return None
-
-    input_validate=InputValidation(prompt,context=None)
-    is_menu = input_validate.multi_menu_call(silent=True)
-    if is_menu is True:
-        return prompt
-    else:
-        if format is not None:
-            format_is_valid = format_validation(prompt,format)
-            return format_is_valid
-        else:
-            print("\n")
-            print(ERROR("Invalid command."))
-         
-
-# def multi_menu_call(prompt,check=False,context=None):
-#     """
-#     Checks user input for valid multi layer menu requests. 
-#     Check parameter is set as False by default, which runs the parent command request. 
-#     Passing the child_commands as parameters on the parent_command, and returning None if invalid.
-    
-#     Setting check=True on the function call, will skip execution and simply return a validation response
-#     """
-#     if prompt:
-#         string_prompt = str(prompt)
-#         words = string_prompt.split()
-
-#         parent_command = ""
-#         child_command = []
-        
-#         if 'help' in words:
-#             parent_command = "help"
-
-#         if parent_command == "":
-#             for i, word in enumerate(words):
-#                 if word.startswith("./"):
-#                     possible_command = word[2:]
-#                     if possible_command:
-#                         parent_command = possible_command
-#                         words.pop(i)
-#                         break
-#                     else:
-#                         continue
-
-#         words = [word[2:] if word.startswith("./") else word for word in words]
-        
-#         for word in words:
-#             if word in main_menu:
-#                 if parent_command == "":
-#                     parent_command = word
-#                 elif parent_command == "help":
-#                     child_command.append(word)
-#                 elif not check:
-#                     print(ERROR("\nYou cannot request 2 main menu actions at once"))
-#                     print(ERROR(f"\nThe call to '{word}' will be ignored"))
-#                     print(ERROR(f"\nIf you want to execute '{word}', 'cancel' the current job and start over again with '{word}'"))
-#                     print(ERROR(f"\nOnly the menu call to '{parent_command} {child_command}' will be executed:"))
-#             elif word != "help":
-#                 child_command.append(word)
-                        
-#         if parent_command in main_menu:
-#             validator = True
-#             if check == False:
-#                 if process_command(parent_command,child_command,context=context) is False:
-#                     validator = False
-#         else:
-#             validator = False
-        
-#         return validator
-
-
+# Validations start       
 def format_slash_separated_details(format):
     """
     Split the string into parts based on '/'
@@ -275,8 +199,6 @@ def format_validation(prompt,format, silent=False):
     """
     if prompt is None:
         return None if silent else print("Invalid input: None provided")
-
-    print(prompt)
     
     try:
         format_details = format_category_check(format)
@@ -368,112 +290,136 @@ def reconstruct_trade_details(validated, invalidated, original_data):
                     break
 
     return trade_details
-# Validations end
         
 
 class InputValidation:
     """
-    Validates input checking:
-    - for menu calls and multi-menu validation, presence of strings initiating with ./
-    - check if user input any targeted value with forced string, like key:value
-    - if forced string, check if value exists and if so treats as an edit
-    - validate data with format provided or wildcard if not provided
-    - show errors for duplicated data
-    - Requests user confirmation on edit requests
+    Class to validate user inputs for a command line interface, focusing on identifying menu commands,
+    managing contextual help, and refining user input into actionable commands and parameters.
+
+    Attributes:
+        input (str): User input string to be parsed and validated.
+        context (str, optional): Contextual information or the current state of the application
+                                 that may affect input processing.
     """
     def __init__(self, input,context=None):
+        """Initialize the class with input and optional context."""
         self.input=input
         self.context=context
-        self.errors = []
 
-
-    def multi_menu_call(self,silent=False):
+    def remove_help_options(self, words):
         """
-        Checks user input for valid multi layer menu requests. 
-        Check parameter is set as False by default, which runs the parent command request. 
-        Passing the child_commands as parameters on the parent_command, and returning None if invalid.
+        Removes 'help' or './help' from the list of words and checks if help was initially present.
         
-        Setting check=True on the function call, will skip execution and simply return a validation response
+        Args:
+            words (list): The list of words to be processed.
+        
+        Returns:
+            str: Returns 'help' if help options were found and removed, otherwise returns an empty string.
         """
-        if self.input:
-            string_prompt = str(self.input)
-            words = string_prompt.split()
-            parent_command = ""
-            child_command = []
-            help_options = {'help', './help'}
-            
-            if any(option in words for option in help_options):
-                parent_command = "help"
+        help_options = {'help', './help'}
+        no_help_words = []
+        no_help_words[:] = [word for word in words if word not in help_options]
+        return 'help' if any(option in words for option in help_options) else '', no_help_words
 
-            if parent_command == "":
-                for i, word in enumerate(words):
-                    if word.startswith("./"):
-                        possible_command = word[2:]
-                        if possible_command in main_menu:
-                            parent_command = possible_command
-                            words.pop(i)
-                            break
-                        else:
-                            words.pop(i)
-                            continue
-            elif parent_command in help_options:
-                for i, word in enumerate(words):
-                    if word.startswith("./"):
-                        possible_command = word[2:]
-                        if possible_command in main_menu:
-                            self.context = possible_command
-                            words.pop(i)
-                            break
-                        else:
-                            words.pop(i)
-                            continue
+    def extract_command(self, words):
+        """
+        Extracts a command from the words list that starts with './', removing the './' prefix.
+        
+        Args:
+            words (list): The list of words from which to extract the command.
+        
+        Returns:
+            str: The command extracted, or an empty string if no such command is found.
+        """
+        for i in range(len(words) - 1, -1, -1):
+            if words[i].startswith("./"):
+                possible_command = words[i][2:]
+                if possible_command in main_menu:
+                    words.pop(i)
+                    return possible_command, words
+        return "",words
 
-            if parent_command == "":
-                for i, word in enumerate(words):
-                    if word in main_menu:
-                        parent_command = word
-                        words.pop(i)
-                        break
-                    else:
-                        continue
-            elif parent_command in help_options:
-                for i, word in enumerate(words):
-                    if word in main_menu:
-                        self.context = word
-                        words.pop(i)
-                        break
-                    else:
-                        continue
-                      
-            words = [word[2:] if word.startswith("./") else word for word in words]
-            
-            for word in words:
-                if word in main_menu:
-                    if parent_command == "":
-                        parent_command = word
-                    elif parent_command == "help":
-                        child_command.append(word)
-                    elif not check:
-                        print(ERROR("\nYou cannot request 2 main menu actions at once"))
-                        print(ERROR(f"The call to '{word}' will be ignored"))
-                        print(ERROR(f"If you want to execute '{word}', 'cancel' the current job and start over again with '{word}'"))
-                        print(ERROR(f"Only the menu call to '{parent_command} {child_command}' will be executed:"))
-                elif word != "help":
-                    child_command.append(word)
-                            
-            if parent_command in main_menu:
-                validator = True
-                if silent == False:
-                    if process_command(parent_command,child_command,self.context) is False:
-                        validator = False
+    def finalize_commands(self, words, parent_command):
+        """
+        Finalizes the parent command and constructs child commands from remaining words.
+        
+        Args:
+            words (list): The list of remaining words after initial processing.
+            parent_command (str): The current parent command to be possibly modified.
+        
+        Returns:
+            tuple: A tuple containing the finalized parent_command and child_command list.
+        """
+        child_command = []
+        for word in words:
+            if word in main_menu:
+                if not parent_command:
+                    parent_command = word
+                elif parent_command == "help":
+                    child_command = word
+                    break
+                else:
+                    self.print_command_error(word, parent_command, child_command)
             else:
-                validator = False
-            
-            return validator
+                child_command.append(word)
+                continue
+        return parent_command, child_command
 
+    def print_command_error(self, word, parent_command, child_command):
+        """
+        Prints error messages related to command conflicts.
+        
+        Args:
+            word (str): The word that caused the conflict.
+            parent_command (str): The parent command in the conflict.
+            child_command (list): The list of child commands involved in the conflict.
+        """
+        print(ERROR("\nYou cannot request 2 main menu actions at once"))
+        print(ERROR(f"The call to '{word}' will be ignored"))
+        print(ERROR(f"If you want to execute '{word}', 'cancel' the current job and start over again with '{word}'"))
+        print(ERROR(f"Only the menu call to '{parent_command} {child_command}' will be executed:"))
 
-    
-    
+    def multi_menu_call(self, silent=False):
+        """
+        Main method to check user input for valid multi-layer menu requests.
+        Uses other helper methods to parse and validate the input.
+        
+        Args:
+            silent (bool): If True, suppresses execution feedback and only validates input.
+        
+        Returns:
+            bool: True if the input is a valid menu command, False otherwise.
+        """
+        words = str(self.input).split()
+        child_command = []
+        parent_command, child_command = self.remove_help_options(words)
+        
+        if not parent_command:
+            extracted_command, extracted_child = self.extract_command(child_command)
+            if extracted_command:
+                parent_command = extracted_command
+                child_command = extracted_child
+            else:
+                parent_command, child_command = self.finalize_commands(words, parent_command)
+        else:
+            extracted_command, _ = self.extract_command(child_command)
+            if extracted_command:
+                child_command = extracted_command
+            else:
+                _, child_command = self.finalize_commands(child_command, parent_command)
+
+        if parent_command in main_menu:
+            if not silent:
+                if not isinstance(child_command, list):
+                    child_command = [child_command]
+                return process_command(parent_command, child_command, context=self.context)
+            return True
+        else:
+            print(ERROR("\nInvalid menu call, none of the inputs validate as menu"))
+            return False 
+# Validations end
+
 
 # Menu start                
 def log_trade(action=None, type=None, price=None, stop=None, atr=None):
@@ -653,6 +599,7 @@ def show_help(context=None):
 def process_command(cmd,child_command=None,context=None):
     """
     Process commands from command line
+    Make this comment more complete
     """
     validator=True
     
@@ -662,6 +609,7 @@ def process_command(cmd,child_command=None,context=None):
         validator = check_stats(*child_command) if child_command else check_stats()
     elif cmd == "help":
         if child_command:
+            print(child_command)
             validator = show_help(*child_command)
         else:
             validator = show_help(context) if context else show_help()
@@ -675,7 +623,6 @@ def process_command(cmd,child_command=None,context=None):
                 validator = navigate_away()  
             elif cmd == "back":
                 print(italic(red("\nThere is no where to go back to, you are in home page.")))
-                print("Type 'help' to see menu options.")  
         else:
             if navigate_away() is True:
                 print(SUCCESS("\nLet's continue with a new command!"))
@@ -699,13 +646,12 @@ def main_loop():
     pro_tips()
     
     while True:
-        cmd = get_input("\nEnter a valid command or 'help': \n")
-        input_validate=InputValidation(cmd)
+        print(PATH("\n./"))
+        cmd = get_input("Enter a valid command or 'help': \n")
         if cmd:
-            if not input_validate.multi_menu_call():
-                print(ERROR(""))
+            input_validate=InputValidation(cmd)
+            input_validate.multi_menu_call()
 
         
 if __name__ == "__main__":
     main_loop()
-    # print(red("test"))
