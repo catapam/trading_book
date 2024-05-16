@@ -456,388 +456,256 @@ class InputValidation:
             print(ERROR("\nInvalid menu call, none of the inputs validate as menu"))
             return False 
 
-######This is the next convertion all functions between here and MainMenu will become part of DataFormatValidation + extra funtions to be created
-class DataFormatValidation: 
+
+class DataFormatValidation:
     """
     Placeholder
     """
-    print("placeholder")
+    def __init__(self, input_dictionary, input_data):
+        self.input_dictionary = input_dictionary
+        self.input_data = input_data
+        self.invalidated_data = []
+        self.output_dictionary = {key: (fmt, None) for key, (fmt, _) in input_dictionary.items()}
 
-      
-def format_slash_separated_details(format):
-    """
-    Processes a format string separated by slashes ('/') to create a human-readable format
-    string and a corresponding regular expression for input validation. This function is typically
-    used to define and validate user inputs based on multiple acceptable formats or options.
+    def has_colon(self, input):
+        if ':' in input:
+            key, value = input.split(':', 1)
+            return key, value
+        else:
+            return None, input
 
-    Args:
-        format (str): A string that contains various format options separated by slashes.
-                      For example, "open/close/update".
+    def format_slash_separated_details(self, format):
+        if format == "any":
+            return {
+                'message': "any string is accepted.\n",
+                'regex': ".*",
+                'decimals': None,
+                'percentage': False,
+                'auto_validate': True
+            }
 
-    Returns:
-        dict: A dictionary containing:
-            - 'message': A string that describes the acceptable formats in a readable manner.
-            - 'regex': A regular expression string that matches any of the options specified in the format string.
-            - 'decimals': None, indicating no specific decimal format is enforced here.
-            - 'percentage': False, indicating these format options do not pertain to percentages.
-            - 'auto_validate': True, suggesting that inputs matching this format can be automatically validated.
+        parts = format.split('/')
+        if len(parts) > 1:
+            formatted_string = ', '.join(parts[:-1]) + ' or ' + parts[-1] + '.\n'
+            formatted_regex = "^(" + "|".join(parts) + ")$"
+        else:
+            formatted_string = parts[0] + '.\n'
+            formatted_regex = "^(" + parts[0] + ")$"
 
-    Example:
-        format = "open/close/update"
-        Returns -> {
-            'message': "open, close, or update.\n",
-            'regex': "^(open|close|update)$",
+        return {
+            'message': f"{formatted_string}",
+            'regex': f"{formatted_regex}",
             'decimals': None,
             'percentage': False,
             'auto_validate': True
         }
 
-    The function is ideal for parsing and validating commands or options where multiple choices are allowed.
-    """
-    # Split the format string by slashes to separate out the different options
-    parts = format.split('/')
+    def format_number_details(self, format):
+        if format == "any":
+            return {
+                'message': "any string is accepted.\n",
+                'regex': ".*",
+                'decimals': None,
+                'percentage': False,
+                'auto_validate': True
+            }
 
-    # If there are multiple parts, format them into a readable string and regex pattern
-    if len(parts) > 1:
-        # Creates a formatted string for the message, using commas and 'or' before the last item
-        formatted_string = ', '.join(parts[:-1]) + ' or ' + parts[-1] + '.\n'
-        # Creates a regex pattern that matches any of the options (this is wrapped in ^ and $ to match whole strings only)
-        formatted_regex = "^(" + "|".join(parts) + ")$"
-    else:
-        # If there's only one part, format it simply without additional punctuation or conjunctions
-        formatted_string = parts[0] + '.\n'
-        # Regex for a single option should simply match that exact string
-        formatted_regex = "^(" + parts[0] + ")$'"
+        percentage = False
+        if not all(c in '#.%' for c in format):
+            return
 
-    # Return a dictionary containing the formatted message, regex, and other relevant details
-    return {'message': f"{formatted_string}",
-            'regex': f"{formatted_regex}",
-            'decimals': None,
-            'percentage': False,
-            'auto_validate': True}
+        if format.endswith("%"):
+            format = format[:-1]
+            percentage = True
 
+        decimal_point_index = format.find('.')
+        if decimal_point_index != -1:
+            decimal_count = len(format) - decimal_point_index - 1
+        else:
+            decimal_count = 0
 
-def format_number_details(format):
-    """
-    Analyzes and constructs a formatting guideline and regular expression based on a numerical
-    format string. This function is tailored to handle formats involving decimal numbers and can
-    also process percentage values indicated by a trailing '%'.
+        if decimal_count == 0:
+            formatted_string = 'only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.\n'
+            formatted_regex = "^\d+$"
+        else:
+            formatted_string = f"numbers with up to {decimal_count} decimal places are accepted.\n"
+            formatted_regex = r"^\d+(\.\d{1," + str(decimal_count) + "})?$"
 
-    Args:
-        format (str): A format string specifying the numerical format, potentially including
-                      a decimal point and a percent symbol. Examples: '#.##', '#.##%', '###'.
+        if percentage:
+            formatted_string += "Enter as a decimal or percentage (e.g., 0.10 or 10%).\n"
+            formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
 
-    Returns:
-        dict: A dictionary containing:
-            - 'message': A user-friendly message describing the acceptable number format.
-            - 'regex': A regular expression designed to validate user inputs against the specified format.
-            - 'decimals': The number of decimal places expected, based on the format string.
-            - 'percentage': A boolean indicating whether the format includes percentage values.
-            - 'auto_validate': A flag indicating whether the format should be automatically validated; set to False here.
-
-    Example:
-        format = '#.##%'
-        Returns -> {
-            'message': "numbers with up to 2 decimal places are accepted.\nEnter as a decimal or percentage (e.g., 0.10 or 10%).\n",
-            'regex': r'^\d+(?:\.\d{1,2})?(?:%?)$',
-            'decimals': 2,
-            'percentage': True,
-            'auto_validate': False
-        }
-
-    The function first checks if the format includes only numbers, decimals, or percent signs.
-    If the format ends with a percent sign, it notes that percentages are expected and adjusts the format.
-    It then determines the number of decimals by finding the position of the decimal point.
-    """
-
-    # Initial setting for whether the format involves percentages
-    percentage = False
-
-    # Validate that the format contains only number-related characters
-    if not all(c in '#.%' for c in format):
-        return
-
-    # Adjust for percentage formats by stripping the '%' sign and setting the flag
-    if format.endswith("%"):
-        format=format[:-1]
-        percentage = True
-
-    # Determine the position of the decimal point to calculate decimal precision
-    decimal_point_index = format.find('.')
-
-    # Calculate the number of decimal places based on the position of the decimal point
-    if decimal_point_index != -1:
-        decimal_count = len(format) - decimal_point_index - 1
-    else:
-        decimal_count = 0
-
-    # Construct the appropriate message and regex based on the number of decimals
-    if decimal_count == 0:
-        formatted_string = 'only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.\n'
-        formatted_regex = "^\d+$"
-    else:
-        formatted_string = f"numbers with up to {decimal_count} decimal places are accepted.\n"
-        formatted_regex = r"^\d+(\.\d{1," + str(decimal_count) + "})?$"
-
-    # Append percentage handling to the message and regex if applicable
-    if percentage:
-        formatted_string += "Enter as a decimal or percentage (e.g., 0.10 or 10%).\n"
-        formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
-
-    # Return a dictionary containing the format details and validation tools
-    return {'message': f"{formatted_string}",
+        return {
+            'message': f"{formatted_string}",
             'regex': f"{formatted_regex}",
             'decimals': f"{decimal_count}",
             'percentage': f"{percentage}",
-            'auto_validate': False}
+            'auto_validate': False
+        }
 
+    def format_category_check(self, format):
+        format_details = self.format_number_details(format)
+        if format_details is None:
+            format_details = self.format_slash_separated_details(format)
+        return format_details
 
-def format_category_check(format):
-    """
-    Determines the appropriate formatting details for a given format string by checking if the
-    format should be handled as a numerical or slash-separated list. This function acts as a
-    dispatcher, invoking the correct formatting function based on the characteristics of the
-    format string.
+    def format_validation(self, prompt, format, silent=False):
+        if prompt is None:
+            return None if silent else print("Invalid input: None provided")
 
-    Args:
-        format (str): A format string that may represent numerical values or a list of options
-                      separated by slashes. Examples include '#.##', 'open/close/update'.
+        try:
+            format_details = self.format_category_check(format)
+            normalized_input = prompt.replace(',', '.')
+            if normalized_input.startswith('.'):
+                normalized_input = '0' + normalized_input
 
-    Returns:
-        dict: A dictionary containing formatting details such as the message for users, regex patterns
-              for validation, and flags indicating the type of validation needed (e.g., decimals, percentages).
-
-    Process:
-        - The function first attempts to process the format as a numerical detail using `format_number_details`.
-        - If `format_number_details` returns `None`, which indicates the format does not fit the expected
-          numerical pattern, it then attempts to process the format using `format_slash_separated_details`.
-        - This approach allows the function to flexibly handle a variety of input format specifications, adapting
-          the processing method based on the format content.
-
-    Example Usage:
-        - For a numerical format: '##.##'
-          The function will use `format_number_details` to generate appropriate format details.
-        - For a command format: 'start/stop/reset'
-          The function will use `format_slash_separated_details` to generate format details.
-
-    Note:
-        - This function requires that the format string be appropriately prepared to match one of the known
-          pattern types (numerical or slash-separated). If neither pattern matches, the return will be the result
-          of attempting a numerical format parsing by default.
-    """
-    # Attempt to process the format as a numerical detail first
-    format_details = format_number_details(format)
-    
-    # If the format is not numerical, process it as a slash-separated list
-    if format_details is None:
-        format_details = format_slash_separated_details(format)
-    
-    # Return the determined format details
-    return format_details
-
-
-def format_validation(prompt,format, silent=False):
-    """
-    Validates a user's input against a specified format to ensure it conforms to expected patterns.
-    This function is essential for maintaining data integrity and ensuring user inputs are processed
-    correctly throughout the application.
-
-    Args:
-        prompt (str): The user input string to validate.
-        format (str): The format string that the input should conform to. This can be a numerical format
-                      (like '#.##') or a set of allowable strings (like 'yes/no/maybe').
-        silent (bool): If True, suppresses error messages; only returns None if validation fails.
-                       Useful for checks where no user feedback is needed.
-
-    Returns:
-        str: The normalized and validated input if it conforms to the specified format.
-        None: If the input does not conform to the format, or if the input is None.
-
-    Raises:
-        ValueError: If the input does not match the format and silent is False, providing details
-                    on the required format.
-
-    Process:
-        - First, checks if the input is None, immediately returning None if true, optionally printing
-          an error if not in silent mode.
-        - Uses `format_category_check` to determine the necessary validation details based on the provided format.
-        - Normalizes the input by replacing commas with dots to handle decimal inputs correctly.
-        - Adjusts the input for percentage values if required by the format.
-        - Validates the input against a compiled regular expression derived from the format.
-        - If validation fails and silent is False, raises a ValueError with a descriptive message.
-
-    Example Usage:
-        - Input validation for a decimal number: format_validation('123.456', '#.##')
-        - Input validation for a command choice: format_validation('yes', 'yes/no/maybe')
-    """
-    if prompt is None:
-        return None if silent else print("Invalid input: None provided")
-    
-    try:
-        # Obtain the validation rules from the format specification
-        format_details = format_category_check(format)
-        normalized_input = prompt.replace(',', '.')
-
-        # Add leading zero to decimal inputs if necessary
-        if normalized_input.startswith('.'):
-            normalized_input = '0' + normalized_input
-
-        # Process numerical inputs for decimal and percentage correctness
-        if format_details['decimals'] != None:
-            if format_details['percentage']:
-                if normalized_input.endswith("%"):
-                    normalized_input= normalized_input[:-1]
-                    number = float(normalized_input)
-                    number = number / 100
+            if format_details['decimals'] is not None:
+                if format_details['percentage']:
+                    if normalized_input.endswith("%"):
+                        normalized_input = normalized_input[:-1]
+                        number = float(normalized_input)
+                        number = number / 100
+                    else:
+                        number = float(normalized_input)
                 else:
                     number = float(normalized_input)
+                normalized_input = f"{number:.{format_details['decimals']}f}"
+
+            if re.match(format_details['regex'], normalized_input):
+                return normalized_input
             else:
-                number = float(normalized_input)
-            normalized_input = f"{number:.{format_details['decimals']}f}"
+                raise ValueError(f"Please enter a value in the format: {format_details['message']}")
 
-        # Validate the final input against the expected regex pattern
-        if re.match(format_details['regex'], normalized_input):
-            return normalized_input
-        else:
-            raise ValueError(f"Please enter a value in the format: {format_details['message']}")
-                    
-    except ValueError as e:
-        if not silent:
-            # Output error details if not in silent mode
-            print(ERROR(f"\nInvalid format detected: {prompt}"))
-            print(ERROR(e))
-        return None
-    
+        except ValueError as e:
+            if not silent:
+                print(f"\nInvalid format detected: {prompt}")
+                print(e)
+            return None
 
-def auto_validator(data):
-    """
-    Automatically validates data entries against defined format rules and attempts to correct
-    any syntax errors or format discrepancies in user entries. This function is pivotal in ensuring
-    data consistency and correctness before processing or storing user input.
+    def auto_validator(self, data):
+        auto_validate_formats = []
+        validated_values = []
+        invalidated_values = []
 
-    Args:
-        data (dict): A dictionary where each key is an attribute name and each value is a tuple
-                     containing a format string and the actual value to validate.
+        for key, (format, actual_value) in data.items():
+            if self.format_category_check(format)["auto_validate"]:
+                auto_validate_formats.append((key, format))
 
-    Returns:
-        dict: A dictionary of the same structure as the input, where values are replaced with
-              their validated or corrected forms if validation was successful.
+        all_values = [(key, actual_value) for key, (_, actual_value) in data.items()]
 
-    Details:
-        - The function first identifies which data entries can be automatically validated based on
-          the 'auto_validate' property derived from their format specifications.
-        - It processes each data entry, attempting to validate each according to its specified format.
-        - Valid entries are corrected and normalized as necessary, while invalid entries are collected
-          for potential further review or error handling.
-        - Finally, it reconstructs the trade details with all validated and corrected values, ensuring
-          that each entry conforms to its declared format.
-
-    Process:
-        - Initialize lists to track formats that support automatic validation and to separate
-          validated from invalidated entries.
-        - Iterate over all entries, applying format validation. Successful validations are noted,
-          and unsuccessful ones are flagged.
-        - Reconstruct the full set of trade details with validated entries, using a helper function
-          to ensure all entries are either validated or marked for review.
-
-    Example Usage:
-        - Given data: {'price': ('#.##', '100.05'), 'type': ('open/close', 'open')}
-          The function will confirm '100.05' as a valid decimal and 'open' as a valid option,
-          returning the data with the values intact but confirmed as valid.
-    """
-    auto_validate_formats = []
-    validated_values = []
-    invalidated_values = []
-
-    # Determine which formats can be automatically validated
-    for key, (format, actual_value) in data.items():
-        if format_category_check(format)["auto_validate"]:
-            auto_validate_formats.append((key, format))
-
-    # Prepare to validate all provided values 
-    all_values = [(key, actual_value) for key, (_, actual_value) in data.items()]
-
-    # Validate each value against its corresponding format
-    for key, actual_value in all_values:
-        is_validated = False
-        for fmt_key, format in auto_validate_formats:
-            validated_value = format_validation(actual_value, format, True)
-            if validated_value:
-                validated_values.append(f"{fmt_key}:{validated_value}")
-                is_validated = True
-                break 
-            
-        # Collect values that could not be automatically validated
-        if not is_validated and actual_value not in invalidated_values:
-            invalidated_values.append(actual_value)
-
-    # Reconstruct trade details with validated values
-    trade_details = reconstruct_trade_details(validated_values,invalidated_values,data)
-    for key, (format, actual_value) in trade_details.items():
-        trade_details[key]=(format,format_validation(actual_value, format,True))
-
-    return trade_details
-
-
-def reconstruct_trade_details(validated, invalidated, original_data):
-    """
-    Reconstructs the trade details with validated values and attempts to incorporate invalidated values
-    where possible. This function is crucial for ensuring that all trade data is as accurate and complete
-    as possible post-validation.
-
-    Args:
-        validated (list): A list of validated values in the format 'key:value'.
-        invalidated (list): A list of values that failed validation or were not automatically validated.
-        original_data (dict): The original dictionary of trade data with keys and format specifications.
-
-    Returns:
-        dict: A dictionary containing the reconstructed trade details, with values updated to include
-              validated entries and, where possible, invalidated entries that have been corrected.
-
-    Process:
-        - Initializes a new dictionary for trade details, setting each entry initially to None.
-        - Updates this dictionary with validated values, ensuring all keys have their associated correct values.
-        - Attempts to assign invalidated values to their corresponding keys if those keys still have None values,
-          prioritizing values that fit the original data format.
-        - For invalidated values without a colon (indicating they were not split into key:value pairs), attempts
-          to validate and assign them to any key that still has a None value.
-
-    Example Usage:
-        - Validated: ['price:100.05', 'action:open']
-        - Invalidated: ['price:1000', 'stop:']
-        - Original Data: {'price': ('#.##', ''), 'type': ('open/close', ''), 'price': ('#', '')}
-          The function will construct a dictionary with 'price' set to '100.05', 'type' set to 'open',
-          and 'price' set to '1000' if '1000' validates successfully against the '#' format.
-    """
-    trade_details = {}
-
-    # Initialize trade details with format but no values
-    for key, (fmt, _) in original_data.items():
-        trade_details[key] = (fmt, None)
-
-    # Update trade details with validated entries
-    for item in validated:
-        if ':' in item:
-            key, value = item.split(':')
-            if key in trade_details:
-                trade_details[key] = (trade_details[key][0], value)
-
-    # Attempt to update details with invalidated entries that have specific keys
-    for value in invalidated:
-        if value and ':' in value:
-            key, val = value.split(':')
-            if key in trade_details and trade_details[key][1] is None:
-                trade_details[key] = (trade_details[key][0], val)
-
-    # Attempt to find a match for invalidated values without specific keys
-    for value in invalidated:
-        if value and ':' not in value: 
-            for key, (fmt, val) in trade_details.items():
-                if val is None and format_validation(value, fmt,True):
-                    trade_details[key] = (fmt, value)
+        for key, actual_value in all_values:
+            is_validated = False
+            for fmt_key, format in auto_validate_formats:
+                validated_value = self.format_validation(actual_value, format, True)
+                if validated_value:
+                    validated_values.append(f"{fmt_key}:{validated_value}")
+                    is_validated = True
                     break
 
-    return trade_details
+            if not is_validated and actual_value not in invalidated_values:
+                invalidated_values.append(actual_value)
+
+        trade_details = self.reconstruct_trade_details(validated_values, invalidated_values, data)
+        for key, (format, actual_value) in trade_details.items():
+            trade_details[key] = (format, self.format_validation(actual_value, format, True))
+
+        return trade_details
+
+    def reconstruct_trade_details(self, validated, invalidated, original_data):
+        trade_details = {key: (fmt, None) for key, (fmt, _) in original_data.items()}
+
+        for item in validated:
+            if ':' in item:
+                key, value = item.split(':', 1)
+                if key in trade_details:
+                    trade_details[key] = (trade_details[key][0], value)
+
+        for value in invalidated:
+            if value and ':' in value:
+                key, val = value.split(':', 1)
+                if key in trade_details and trade_details[key][1] is None:
+                    trade_details[key] = (trade_details[key][0], val)
+
+        for value in invalidated:
+            if value and ':' not in value:
+                for key, (fmt, val) in trade_details.items():
+                    if val is None and self.format_validation(value, fmt, True):
+                        trade_details[key] = (fmt, value)
+                        break
+
+        return trade_details
+
+    def process_input_data(self):
+        # First pass: handle key-value pairs
+        remaining_data = []
+        for item in self.input_data:
+            key, value = self.has_colon(item)
+            if key:
+                if key in self.input_dictionary:
+                    format = self.input_dictionary[key][0]
+                    validated_value = self.format_validation(value, format, True)
+                    if validated_value:
+                        if self.output_dictionary[key][1] is None:
+                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                        else:
+                            if yes_or_no(f"{key} already has a value. Do you want to overwrite it?"):
+                                self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                            else:
+                                self.invalidated_data.append(item)
+                    else:
+                        self.invalidated_data.append(item)
+                else:
+                    self.invalidated_data.append(item)
+            else:
+                remaining_data.append(item)
+
+        # Second pass: handle percentage values.
+        percentage_keys = [key for key, (format, value) in self.output_dictionary.items() if format.endswith('%')]
+        for item in remaining_data[:]:
+            original_item = item  # Store the original item
+            if item.endswith('%'):
+                for key in percentage_keys:
+                    if self.output_dictionary[key][1] is None:
+                        format = self.input_dictionary[key][0]
+                        format_details = self.format_category_check(format)
+                        item = item[:-1]  # Remove the percentage sign for validation
+                        try:
+                            item_as_float = float(item) / 100
+                            item = f"{item_as_float:.{format_details['decimals']}f}"
+                            validated_value = self.format_validation(item, format, True)
+                            if validated_value:
+                                self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                                remaining_data.remove(original_item)  # Remove the original item
+                                break
+                        except ValueError:
+                            self.invalidated_data.append(original_item)
+                            break
+
+        # Third pass: handle remaining values in order for all None values in the dictionary
+        for item in remaining_data[:]:
+            original_item = item  # Store the original item
+            validated = False
+            for key, (format, value) in self.output_dictionary.items():
+                if value is None and not format.endswith('%') and format != "any":  # Skip percentage and 'any' formats
+                    validated_value = self.format_validation(item, format, True)
+                    if validated_value:
+                        self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                        remaining_data.remove(original_item)  # Remove the original item
+                        validated = True
+                        break
+            if not validated:
+                self.invalidated_data.append(original_item)
+
+    def print_errors(self):
+        if self.invalidated_data:
+            print(f"Invalidated data: {self.invalidated_data}")
+        # if self.input_data:
+        #     print(f"Remaining input data: {self.input_data}")
+
+    def get_results(self):
+        if self.input_data:
+            self.process_input_data()
+            return self.output_dictionary, self.invalidated_data, self.input_data
 
 
 ## Main Menu  
@@ -864,7 +732,6 @@ class MainMenu:
             "cancel": self.navigate_away,
             "back": self.navigate_away
         }
-
 
     def process_command(self,cmd,child_command=None,context=None):
         """
@@ -893,12 +760,12 @@ class MainMenu:
                 return function()
             elif cmd =='help':
                 if child_command:
-                    return function(*child_command)
+                    return function(child_command)
                 else:
                     return function(context) if context else function()
             elif not context:
                 if cmd in ["entry", "set"]:
-                    return function(*child_command) if child_command else function()
+                    return function(child_command) if child_command else function()
                 elif cmd == "cancel":
                     print(italic(red("\nThere is nothing to cancel at the moment.")))
                 elif cmd == "back":
@@ -907,7 +774,7 @@ class MainMenu:
                 if self.navigate_away():
                     print(SUCCESS("\nLet's continue with a new command!"))
                     if cmd in ["entry","set"]:
-                        return function(*child_command) if child_command else function()
+                        return function(child_command) if child_command else function()
                     else:
                         return True
         else:
@@ -1041,7 +908,7 @@ class MainMenu:
 
 ## Entry process execution
 #### This will become a Class too              
-def log_trade(action=None, type=None, price=None, stop=None, atr=None):
+def log_trade(input=None):
     """
     Log a trade with optional user interaction for details.
     """
@@ -1053,24 +920,24 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     cmd="entry"
     
     trade_details = {
-        "action": ("open/close/update/bulk", action),
-        "type": ("long/short", type),
-        "price": ("#.########", price),
-        "stop": ("#.########", stop),
-        "atr": ("#.####%", atr)
+        "asset": ("any",None),
+        "action": ("open/close/update/bulk", None),
+        "type": ("long/short", None),
+        "price": ("#.########", None),
+        "stop": ("#.########", None),
+        "atr": ("#.####%", None)
     }
 
     def key_validator(trade_details):
-        trade_details = auto_validator(trade_details)
-        
+        if input:
+            validator = DataFormatValidation(trade_details, input)
+            trade_details, _,_ = validator.get_results()
+            
         for key,(fmt,value) in trade_details.items():        
-            if value is not None:
-                trade_details[key]= (fmt,f"{key}:{value}") 
-            else:
+            if not value:
                 key_none.append(key)
 
         return key_none, trade_details
-            
     while True:
         key_none=[]
         
@@ -1124,8 +991,8 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     if bulk:
         print("Hey, you selected bulk-mode import!")
     else:
-        action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
-        print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {type} {price} {stop} {atr}"))
+        asset, action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
+        print(SUCCESS(f"\nTrade logged with user input:\nentry {asset} {action} {type} {price} {stop} {atr}"))
    
 
 ##Main loop    
