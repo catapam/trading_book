@@ -55,7 +55,7 @@ class StyleOutput:
         return styled_message
 
 
-#General atributes
+##Styling atributes
 styles = StyleOutput()
 GREETING = styles.apply_style('orange')
 TITLE = styles.apply_style('title')
@@ -70,8 +70,6 @@ italic = styles.apply_style('italic')
 underscore = styles.apply_style('underscore')
 dim = styles.apply_style('dim')   
 
-main_menu=["entry","set","check","exit","help","cancel","back"]
-# main_menu = list(MainMenu.command.keys())
 
 ##General Functions
 def get_input(prompt):
@@ -223,7 +221,7 @@ def pro_tips():
     print(dim("  Example: current validated data is './entry asset:SPY type:short', entering 'type:long' will update the previously set value"))
 
 
-# Validations start
+## Validations
 class InputValidation:
     """
     Provides mechanisms to validate and process user inputs within a command-line interface.
@@ -314,25 +312,59 @@ class InputValidation:
 
     def finalize_commands(self, words, parent_command):
         """
-        Determines the final structure of the command and any child commands after initial processing.
+        Finalizes the identification of the parent command and constructs the list of child commands
+        based on the remaining words in the input. This method consolidates the parsing process by 
+        establishing a clear hierarchical command structure after initial command identification has been done.
+
+        This method is crucial in the command processing pipeline, as it determines the ultimate command
+        that should be executed based on user input, along with any sub-commands or parameters that need
+        to be passed to the command handler functions.
 
         Args:
-            words (list of str): Remaining words after removing known commands.
-            parent_command (str): The initially determined parent command.
+            words (list of str): A list of words that remains after initial filtering for direct commands 
+                                and help-related options. These words are potential commands or parameters.
+            parent_command (str): The command that has been initially identified as the primary action
+                                the user wants to perform. This could still be None if no clear command
+                                was identified in earlier stages.
 
         Returns:
-            tuple: The finalized parent command and a list of child commands.
+            tuple: A tuple containing:
+                - parent_command (str): The finalized parent command if one is identified among the words.
+                                        If no new command is found and a parent_command was already identified,
+                                        it remains unchanged.
+                - child_command (list of str): A list of additional commands or parameters that accompany the 
+                                            parent command. This list is used to further execute the command.
+
+        Process:
+            - The method iterates over the list of remaining words.
+            - If a word matches one of the predefined commands and no parent command has been set, it establishes
+            this word as the parent command.
+            - If a parent command is already set and it is 'help', it looks to set the next valid command as a 
+            child command intended to provide specific help.
+            - If a word doesn't match any predefined command or is additional to an existing command, it is added
+            to the list of child commands as a parameter or sub-command.
+            - If there are any conflicts or issues (like a word trying to act as a second parent command), it logs
+            an error specific to this scenario.
+
+        Example:
+            - Input: ['entry', 'open'], parent_command: None
+            Output: ('entry', ['open'])
+            - This means the parent command is 'entry' with 'open' as a sub-command or parameter.
         """
         child_command = []
         for word in words:
             if word in main_menu:
                 if not parent_command:
+                     # Set the word as parent command if no parent command has been identified yet
                     parent_command = word
                 elif parent_command == "help" and not child_command:
+                     # If the parent command is 'help' and no child command has been set, set this word as child command
                     child_command = word
                 else:
+                    # Handle errors when an invalid command structure is detected
                     self.print_command_error(word, parent_command, child_command)
             else:
+                # Append non-command words as child commands or parameters
                 child_command.append(word)
         return parent_command, child_command
 
@@ -424,9 +456,8 @@ class InputValidation:
             print(ERROR("\nInvalid menu call, none of the inputs validate as menu"))
             return False 
 
-
+######This is the next convertion all functions between here and MainMenu will become part of DataFormatValidation + extra funtions to be created
 class DataFormatValidation: 
-    
     """
     Placeholder
     """
@@ -435,17 +466,50 @@ class DataFormatValidation:
       
 def format_slash_separated_details(format):
     """
-    Split the string into parts based on '/'
+    Processes a format string separated by slashes ('/') to create a human-readable format
+    string and a corresponding regular expression for input validation. This function is typically
+    used to define and validate user inputs based on multiple acceptable formats or options.
+
+    Args:
+        format (str): A string that contains various format options separated by slashes.
+                      For example, "open/close/update".
+
+    Returns:
+        dict: A dictionary containing:
+            - 'message': A string that describes the acceptable formats in a readable manner.
+            - 'regex': A regular expression string that matches any of the options specified in the format string.
+            - 'decimals': None, indicating no specific decimal format is enforced here.
+            - 'percentage': False, indicating these format options do not pertain to percentages.
+            - 'auto_validate': True, suggesting that inputs matching this format can be automatically validated.
+
+    Example:
+        format = "open/close/update"
+        Returns -> {
+            'message': "open, close, or update.\n",
+            'regex': "^(open|close|update)$",
+            'decimals': None,
+            'percentage': False,
+            'auto_validate': True
+        }
+
+    The function is ideal for parsing and validating commands or options where multiple choices are allowed.
     """
+    # Split the format string by slashes to separate out the different options
     parts = format.split('/')
 
+    # If there are multiple parts, format them into a readable string and regex pattern
     if len(parts) > 1:
+        # Creates a formatted string for the message, using commas and 'or' before the last item
         formatted_string = ', '.join(parts[:-1]) + ' or ' + parts[-1] + '.\n'
+        # Creates a regex pattern that matches any of the options (this is wrapped in ^ and $ to match whole strings only)
         formatted_regex = "^(" + "|".join(parts) + ")$"
     else:
+        # If there's only one part, format it simply without additional punctuation or conjunctions
         formatted_string = parts[0] + '.\n'
+        # Regex for a single option should simply match that exact string
         formatted_regex = "^(" + parts[0] + ")$'"
 
+    # Return a dictionary containing the formatted message, regex, and other relevant details
     return {'message': f"{formatted_string}",
             'regex': f"{formatted_regex}",
             'decimals': None,
@@ -455,25 +519,59 @@ def format_slash_separated_details(format):
 
 def format_number_details(format):
     """
-    Split the string into parts based on #.## formating received. 
-    Decimal % is also processed.
+    Analyzes and constructs a formatting guideline and regular expression based on a numerical
+    format string. This function is tailored to handle formats involving decimal numbers and can
+    also process percentage values indicated by a trailing '%'.
+
+    Args:
+        format (str): A format string specifying the numerical format, potentially including
+                      a decimal point and a percent symbol. Examples: '#.##', '#.##%', '###'.
+
+    Returns:
+        dict: A dictionary containing:
+            - 'message': A user-friendly message describing the acceptable number format.
+            - 'regex': A regular expression designed to validate user inputs against the specified format.
+            - 'decimals': The number of decimal places expected, based on the format string.
+            - 'percentage': A boolean indicating whether the format includes percentage values.
+            - 'auto_validate': A flag indicating whether the format should be automatically validated; set to False here.
+
+    Example:
+        format = '#.##%'
+        Returns -> {
+            'message': "numbers with up to 2 decimal places are accepted.\nEnter as a decimal or percentage (e.g., 0.10 or 10%).\n",
+            'regex': r'^\d+(?:\.\d{1,2})?(?:%?)$',
+            'decimals': 2,
+            'percentage': True,
+            'auto_validate': False
+        }
+
+    The function first checks if the format includes only numbers, decimals, or percent signs.
+    If the format ends with a percent sign, it notes that percentages are expected and adjusts the format.
+    It then determines the number of decimals by finding the position of the decimal point.
     """
+
+    # Initial setting for whether the format involves percentages
     percentage = False
 
+    # Validate that the format contains only number-related characters
     if not all(c in '#.%' for c in format):
         return
-    
+
+    # Adjust for percentage formats by stripping the '%' sign and setting the flag
     if format.endswith("%"):
         format=format[:-1]
         percentage = True
 
+    # Determine the position of the decimal point to calculate decimal precision
     decimal_point_index = format.find('.')
-        
+
+    # Calculate the number of decimal places based on the position of the decimal point
     if decimal_point_index != -1:
         decimal_count = len(format) - decimal_point_index - 1
     else:
         decimal_count = 0
 
+    # Construct the appropriate message and regex based on the number of decimals
     if decimal_count == 0:
         formatted_string = 'only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.\n'
         formatted_regex = "^\d+$"
@@ -481,10 +579,12 @@ def format_number_details(format):
         formatted_string = f"numbers with up to {decimal_count} decimal places are accepted.\n"
         formatted_regex = r"^\d+(\.\d{1," + str(decimal_count) + "})?$"
 
+    # Append percentage handling to the message and regex if applicable
     if percentage:
         formatted_string += "Enter as a decimal or percentage (e.g., 0.10 or 10%).\n"
         formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
 
+    # Return a dictionary containing the format details and validation tools
     return {'message': f"{formatted_string}",
             'regex': f"{formatted_regex}",
             'decimals': f"{decimal_count}",
@@ -493,27 +593,96 @@ def format_number_details(format):
 
 
 def format_category_check(format):
-    if not format_number_details(format):
+    """
+    Determines the appropriate formatting details for a given format string by checking if the
+    format should be handled as a numerical or slash-separated list. This function acts as a
+    dispatcher, invoking the correct formatting function based on the characteristics of the
+    format string.
+
+    Args:
+        format (str): A format string that may represent numerical values or a list of options
+                      separated by slashes. Examples include '#.##', 'open/close/update'.
+
+    Returns:
+        dict: A dictionary containing formatting details such as the message for users, regex patterns
+              for validation, and flags indicating the type of validation needed (e.g., decimals, percentages).
+
+    Process:
+        - The function first attempts to process the format as a numerical detail using `format_number_details`.
+        - If `format_number_details` returns `None`, which indicates the format does not fit the expected
+          numerical pattern, it then attempts to process the format using `format_slash_separated_details`.
+        - This approach allows the function to flexibly handle a variety of input format specifications, adapting
+          the processing method based on the format content.
+
+    Example Usage:
+        - For a numerical format: '##.##'
+          The function will use `format_number_details` to generate appropriate format details.
+        - For a command format: 'start/stop/reset'
+          The function will use `format_slash_separated_details` to generate format details.
+
+    Note:
+        - This function requires that the format string be appropriately prepared to match one of the known
+          pattern types (numerical or slash-separated). If neither pattern matches, the return will be the result
+          of attempting a numerical format parsing by default.
+    """
+    # Attempt to process the format as a numerical detail first
+    format_details = format_number_details(format)
+    
+    # If the format is not numerical, process it as a slash-separated list
+    if format_details is None:
         format_details = format_slash_separated_details(format)
-    else:
-        format_details = format_number_details(format)
+    
+    # Return the determined format details
     return format_details
 
 
 def format_validation(prompt,format, silent=False):
     """
-    Checks input data for formatting issues
+    Validates a user's input against a specified format to ensure it conforms to expected patterns.
+    This function is essential for maintaining data integrity and ensuring user inputs are processed
+    correctly throughout the application.
+
+    Args:
+        prompt (str): The user input string to validate.
+        format (str): The format string that the input should conform to. This can be a numerical format
+                      (like '#.##') or a set of allowable strings (like 'yes/no/maybe').
+        silent (bool): If True, suppresses error messages; only returns None if validation fails.
+                       Useful for checks where no user feedback is needed.
+
+    Returns:
+        str: The normalized and validated input if it conforms to the specified format.
+        None: If the input does not conform to the format, or if the input is None.
+
+    Raises:
+        ValueError: If the input does not match the format and silent is False, providing details
+                    on the required format.
+
+    Process:
+        - First, checks if the input is None, immediately returning None if true, optionally printing
+          an error if not in silent mode.
+        - Uses `format_category_check` to determine the necessary validation details based on the provided format.
+        - Normalizes the input by replacing commas with dots to handle decimal inputs correctly.
+        - Adjusts the input for percentage values if required by the format.
+        - Validates the input against a compiled regular expression derived from the format.
+        - If validation fails and silent is False, raises a ValueError with a descriptive message.
+
+    Example Usage:
+        - Input validation for a decimal number: format_validation('123.456', '#.##')
+        - Input validation for a command choice: format_validation('yes', 'yes/no/maybe')
     """
     if prompt is None:
         return None if silent else print("Invalid input: None provided")
     
     try:
+        # Obtain the validation rules from the format specification
         format_details = format_category_check(format)
         normalized_input = prompt.replace(',', '.')
-           
+
+        # Add leading zero to decimal inputs if necessary
         if normalized_input.startswith('.'):
             normalized_input = '0' + normalized_input
 
+        # Process numerical inputs for decimal and percentage correctness
         if format_details['decimals'] != None:
             if format_details['percentage']:
                 if normalized_input.endswith("%"):
@@ -526,6 +695,7 @@ def format_validation(prompt,format, silent=False):
                 number = float(normalized_input)
             normalized_input = f"{number:.{format_details['decimals']}f}"
 
+        # Validate the final input against the expected regex pattern
         if re.match(format_details['regex'], normalized_input):
             return normalized_input
         else:
@@ -533,6 +703,7 @@ def format_validation(prompt,format, silent=False):
                     
     except ValueError as e:
         if not silent:
+            # Output error details if not in silent mode
             print(ERROR(f"\nInvalid format detected: {prompt}"))
             print(ERROR(e))
         return None
@@ -540,18 +711,53 @@ def format_validation(prompt,format, silent=False):
 
 def auto_validator(data):
     """
-    Auto-validate data against formatting, fixing possible syntax errors on user entry
+    Automatically validates data entries against defined format rules and attempts to correct
+    any syntax errors or format discrepancies in user entries. This function is pivotal in ensuring
+    data consistency and correctness before processing or storing user input.
+
+    Args:
+        data (dict): A dictionary where each key is an attribute name and each value is a tuple
+                     containing a format string and the actual value to validate.
+
+    Returns:
+        dict: A dictionary of the same structure as the input, where values are replaced with
+              their validated or corrected forms if validation was successful.
+
+    Details:
+        - The function first identifies which data entries can be automatically validated based on
+          the 'auto_validate' property derived from their format specifications.
+        - It processes each data entry, attempting to validate each according to its specified format.
+        - Valid entries are corrected and normalized as necessary, while invalid entries are collected
+          for potential further review or error handling.
+        - Finally, it reconstructs the trade details with all validated and corrected values, ensuring
+          that each entry conforms to its declared format.
+
+    Process:
+        - Initialize lists to track formats that support automatic validation and to separate
+          validated from invalidated entries.
+        - Iterate over all entries, applying format validation. Successful validations are noted,
+          and unsuccessful ones are flagged.
+        - Reconstruct the full set of trade details with validated entries, using a helper function
+          to ensure all entries are either validated or marked for review.
+
+    Example Usage:
+        - Given data: {'price': ('#.##', '100.05'), 'type': ('open/close', 'open')}
+          The function will confirm '100.05' as a valid decimal and 'open' as a valid option,
+          returning the data with the values intact but confirmed as valid.
     """
     auto_validate_formats = []
     validated_values = []
     invalidated_values = []
 
+    # Determine which formats can be automatically validated
     for key, (format, actual_value) in data.items():
         if format_category_check(format)["auto_validate"]:
             auto_validate_formats.append((key, format))
-            
+
+    # Prepare to validate all provided values 
     all_values = [(key, actual_value) for key, (_, actual_value) in data.items()]
-    
+
+    # Validate each value against its corresponding format
     for key, actual_value in all_values:
         is_validated = False
         for fmt_key, format in auto_validate_formats:
@@ -560,10 +766,12 @@ def auto_validator(data):
                 validated_values.append(f"{fmt_key}:{validated_value}")
                 is_validated = True
                 break 
-
+            
+        # Collect values that could not be automatically validated
         if not is_validated and actual_value not in invalidated_values:
             invalidated_values.append(actual_value)
 
+    # Reconstruct trade details with validated values
     trade_details = reconstruct_trade_details(validated_values,invalidated_values,data)
     for key, (format, actual_value) in trade_details.items():
         trade_details[key]=(format,format_validation(actual_value, format,True))
@@ -572,23 +780,56 @@ def auto_validator(data):
 
 
 def reconstruct_trade_details(validated, invalidated, original_data):
+    """
+    Reconstructs the trade details with validated values and attempts to incorporate invalidated values
+    where possible. This function is crucial for ensuring that all trade data is as accurate and complete
+    as possible post-validation.
+
+    Args:
+        validated (list): A list of validated values in the format 'key:value'.
+        invalidated (list): A list of values that failed validation or were not automatically validated.
+        original_data (dict): The original dictionary of trade data with keys and format specifications.
+
+    Returns:
+        dict: A dictionary containing the reconstructed trade details, with values updated to include
+              validated entries and, where possible, invalidated entries that have been corrected.
+
+    Process:
+        - Initializes a new dictionary for trade details, setting each entry initially to None.
+        - Updates this dictionary with validated values, ensuring all keys have their associated correct values.
+        - Attempts to assign invalidated values to their corresponding keys if those keys still have None values,
+          prioritizing values that fit the original data format.
+        - For invalidated values without a colon (indicating they were not split into key:value pairs), attempts
+          to validate and assign them to any key that still has a None value.
+
+    Example Usage:
+        - Validated: ['price:100.05', 'action:open']
+        - Invalidated: ['price:1000', 'stop:']
+        - Original Data: {'price': ('#.##', ''), 'type': ('open/close', ''), 'price': ('#', '')}
+          The function will construct a dictionary with 'price' set to '100.05', 'type' set to 'open',
+          and 'price' set to '1000' if '1000' validates successfully against the '#' format.
+    """
     trade_details = {}
-    
+
+    # Initialize trade details with format but no values
     for key, (fmt, _) in original_data.items():
         trade_details[key] = (fmt, None)
-    
+
+    # Update trade details with validated entries
     for item in validated:
         if ':' in item:
             key, value = item.split(':')
             if key in trade_details:
                 trade_details[key] = (trade_details[key][0], value)
-    
+
+    # Attempt to update details with invalidated entries that have specific keys
     for value in invalidated:
         if value and ':' in value:
             key, val = value.split(':')
             if key in trade_details and trade_details[key][1] is None:
                 trade_details[key] = (trade_details[key][0], val)
-    
+
+    # Attempt to find a match for invalidated values without specific keys
     for value in invalidated:
         if value and ':' not in value: 
             for key, (fmt, val) in trade_details.items():
@@ -597,10 +838,9 @@ def reconstruct_trade_details(validated, invalidated, original_data):
                     break
 
     return trade_details
-# Validations end
 
 
-# Menu start  
+## Main Menu  
 class MainMenu:
     """
     Manages the main menu and command processing for the command line application. This class provides
@@ -715,7 +955,6 @@ class MainMenu:
         Returns:
             None: This method does not return a value but terminates the program if confirmed.
         """
-        # print("\n")
         print(ERROR("\nAll non-saved data will be lost"))
         leave = get_input(italic(red("Would you like to quit the program anyways? (y/n)\n")))
         confirmation = yes_or_no(leave)
@@ -793,9 +1032,15 @@ class MainMenu:
                 elif input_validate.multi_menu_call(silent=True):
                     input_validate.multi_menu_call(cmd)
                 else:
-                    continue     
+                    continue   
+
+    @classmethod
+    def get_menu_keys(cls):
+        return list(cls().command.keys())
         
-              
+
+## Entry process execution
+#### This will become a Class too              
 def log_trade(action=None, type=None, price=None, stop=None, atr=None):
     """
     Log a trade with optional user interaction for details.
@@ -882,7 +1127,8 @@ def log_trade(action=None, type=None, price=None, stop=None, atr=None):
         action, type, price, stop, atr = (trade_details[k][1] for k in trade_details)
         print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {type} {price} {stop} {atr}"))
    
-    
+
+##Main loop    
 def main_loop():
     """
     Executes the main loop of the application, continuously prompting the user for input
@@ -900,11 +1146,17 @@ def main_loop():
     This loop runs indefinitely, processing input commands until an exit command is issued
     by the user or the program is terminated through other means.
     """
+    #Greeting and instructions
     print(underscore(GREETING("\n\n\nWelcome to Trading Book System!")))
     menu = MainMenu()
     menu.menu_help()
     pro_tips()
-    
+
+    #Declare needed global
+    global main_menu
+    main_menu = list(menu.command.keys())
+
+    #Loop requesting and processing inputs
     while True:
         print(PATH("\n./"))
         cmd = get_input("Enter a valid command or 'help': \n")
