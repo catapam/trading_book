@@ -103,9 +103,10 @@ def get_input(prompt):
     """
     # Display the prompt to the user, formatted with a question style
     user_input = input(QUESTION(f"{prompt}"))
-
+    input_data = str(user_input.strip().lower()).split()
+    
     # Return the input after stripping whitespace and converting to lowercase
-    return user_input.strip().lower()
+    return input_data
            
 
 def delete_none_values(data_details,num):
@@ -158,19 +159,26 @@ def yes_or_no(input):
     user input styles.
     """
     # Dictionary of valid yes and no responses for broader acceptance of user input
-    affirmative = {'y', 'yes', 'yeap', 'yeah', 'ya', 'ye', 'yy', 'yees', 'yess', 'sure', 'absolutely', 'indeed'}
-    negative = {'n', 'no', 'nope', 'nah', 'not', 'dont', 'nn', 'nno', 'noo', 'never'}
-
+    affirmative = ['y', 'yes', 'yeap', 'yeah', 'ya', 'ye', 'yy', 'yees', 'yess', 'sure', 'absolutely', 'indeed']
+    negative = ['n', 'no', 'nope', 'nah', 'not', 'dont', 'nn', 'nno', 'noo', 'never']
+            
     while True:
+        if isinstance(input, list) and len(input) > 0:
+            input = input[0]
+        
         if input in affirmative:
-            return True
+            confirm = True
+            break
         elif input in negative:
-            return False
+            confirm = False
+            break
         else:
             # Inform the user of invalid input and request a valid response
             print(ERROR("\nPlease use 'y' or 'n'."))
-            input = get_input("\nEnter response:\n")
+            input = get_input("\nEnter new response:\n")
             continue
+
+    return confirm
 
 
 def PATH(cmd = None, data_settings = None, key = None):
@@ -186,7 +194,7 @@ def PATH(cmd = None, data_settings = None, key = None):
         if fmt == "any":
             prompt = get_input(f"Enter trade {key} (any characteres, but space or menu calls) or 'help': \n")
             if ":" not in prompt:
-                prompt = f"{key}:{prompt}"
+                prompt[0] = f"{key}:{prompt[0]}"
                 
         else:
             prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
@@ -384,7 +392,7 @@ class InputValidation:
         - Returns False if no valid command is found, indicating an invalid input.
         """
         # Split the input into individual words for processing
-        words = str(self.input).split()
+        words = self.input
         child_command = []
 
         # Remove help options and determine if a help command was indicated
@@ -439,8 +447,7 @@ class DataFormatValidation:
         - input_data (list): List of input data strings to be validated and processed.
         """
         self.input_dictionary = input_dictionary
-        self.input = input_data
-        self.input_data = str(self.input).split()
+        self.input_data = input_data
         self.invalidated_data = []
         self.output_dictionary = {key: (fmt, None) for key, (fmt, _) in input_dictionary.items()}
 
@@ -848,65 +855,70 @@ class DataFormatValidation:
         2. Handle percentage values.
         3. Handle remaining values for all None values in the dictionary.
         """        
-        # First pass: handle key-value pairs
         remaining_data = []
-        for item in self.input_data:
-            key, value = self.has_colon(item)
-            if key:
-                if key in self.input_dictionary:
-                    format = self.input_dictionary[key][0]
-                    validated_value = self.format_validation(value, format, True)
-                    if validated_value:
-                        if self.output_dictionary[key][1] is None:
-                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                        else:
-                            if yes_or_no(f"{key} already has a value. Do you want to overwrite it?"):
+        if self.input_data:
+            # First pass: handle key-value pairs
+            for item in self.input_data:
+                key, value = self.has_colon(item)
+                
+                if key:
+                    if key in self.input_dictionary:
+                        format = self.input_dictionary[key][0]
+                        validated_value = self.format_validation(value, format, True)
+                        
+                        if validated_value:
+                            if self.output_dictionary[key][1] is None:
                                 self.output_dictionary[key] = (format, f"{key}:{validated_value}")
                             else:
-                                self.invalidated_data.append(item)
+                                if yes_or_no(message = f"{key} already has a value. Do you want to overwrite it?"):
+                                    self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                                else:
+                                    self.invalidated_data.append(item)
+                        else:
+                            self.invalidated_data.append(item)
                     else:
                         self.invalidated_data.append(item)
                 else:
-                    self.invalidated_data.append(item)
-            else:
-                remaining_data.append(item)
+                    remaining_data.append(item)
 
-        # Second pass: handle percentage values.
-        percentage_keys = [key for key, (format, value) in self.output_dictionary.items() if format.endswith('%')]
-        for item in remaining_data[:]:
-            original_item = item  # Store the original item
-            if item.endswith('%'):
-                for key in percentage_keys:
-                    if self.output_dictionary[key][1] is None:
-                        format = self.input_dictionary[key][0]
-                        format_details = self.format_category_check(format)
-                        item = item[:-1]  # Remove the percentage sign for validation
-                        try:
-                            item_as_float = float(item) / 100
-                            item = f"{item_as_float:.{format_details['decimals']}f}"
-                            validated_value = self.format_validation(item, format, True)
-                            if validated_value:
-                                self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                                remaining_data.remove(original_item)  # Remove the original item
+            # Second pass: handle percentage values.
+            percentage_keys = [key for key, (format, value) in self.output_dictionary.items() if format.endswith('%')]
+            for item in remaining_data[:]:
+                original_item = item  # Store the original item
+                
+                if item.endswith('%'):
+                    for key in percentage_keys:
+                        if self.output_dictionary[key][1] is None:
+                            format = self.input_dictionary[key][0]
+                            format_details = self.format_category_check(format)
+                            item = item[:-1]  # Remove the percentage sign for validation
+                            try:
+                                item_as_float = float(item) / 100                            
+                                item = f"{item_as_float:.{format_details['decimals']}f}"
+                                validated_value = self.format_validation(item, format, True)
+                                
+                                if validated_value:
+                                    self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                                    remaining_data.remove(original_item)  # Remove the original item
+                                    break
+                            except ValueError:
+                                self.invalidated_data.append(original_item)
                                 break
-                        except ValueError:
-                            self.invalidated_data.append(original_item)
-                            break
 
-        # Third pass: handle remaining values in order for all None values in the dictionary
-        for item in remaining_data[:]:
-            original_item = item  # Store the original item
-            validated = False
-            for key, (format, value) in self.output_dictionary.items():
-                if value is None and not format.endswith('%') and format != "any":  # Skip percentage and 'any' formats
-                    validated_value = self.format_validation(item, format, True)
-                    if validated_value:
-                        self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                        remaining_data.remove(original_item)  # Remove the original item
-                        validated = True
-                        break
-            if not validated:
-                self.invalidated_data.append(original_item)
+            # Third pass: handle remaining values in order for all None values in the dictionary
+            for item in remaining_data[:]:
+                original_item = item  # Store the original item
+                validated = False
+                for key, (format, value) in self.output_dictionary.items():
+                    if value is None and not format.endswith('%') and format != "any":  # Skip percentage and 'any' formats
+                        validated_value = self.format_validation(item, format, True)
+                        if validated_value:
+                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                            remaining_data.remove(original_item)  # Remove the original item
+                            validated = True
+                            break
+                if not validated:
+                    self.invalidated_data.append(original_item)
 
     def print_errors(self):
         """
@@ -950,7 +962,7 @@ class MainMenu:
             "exit": self.exit_program,
             "check": self.menu_check,
             "help": self.menu_help,
-            "entry": Entry,
+            "entry": self.menu_entry,
             "set": self.menu_set,
             "cancel": self.navigate_away,
             "back": self.navigate_away
@@ -976,35 +988,49 @@ class MainMenu:
         or if specific context conditions are met, ensuring that commands like 'entry' and 'set' can
         operate with the necessary parameters.
         """
+        # Get the function associated with the command from the command dictionary
         function = self.command.get(cmd)
 
         if function:
+            # Handle simple commands that do not require additional arguments or context
             if cmd in ["exit", "check"]:
                 return function()
+            # Handle the 'help' command with optional child_command or context
             elif cmd =='help':
                 if child_command:
                     return function(child_command)
                 else:
                     return function(context) if context else function()
+            # Handle commands that do not have a specific context
             elif not context:
                 if cmd in ["entry", "set"]:
                     return function(child_command) if child_command else function()
                 elif cmd == "cancel":
+                    # Print a message if there is nothing to cancel
                     print(italic(red("\nThere is nothing to cancel at the moment.")))
                 elif cmd == "back":
+                    # Print a message if there is nowhere to go back to
                     print(italic(red("\nThere is nowhere to go back to, you are in home page.")))
+            # Handle commands with a specific context
             elif context:
-                if self.navigate_away():
+                cancel = self.navigate_away(child_command)
+                if cancel:
+                    # If navigation away is confirmed, print a success message and process the new command
                     print(SUCCESS("\nLet's continue with a new command!"))
                     if cmd in ["entry","set"]:
                         return function(child_command) if child_command else function()
-                    else:
-                        return True
+
+                return cancel
         else:
+            # Return False if the command is not found in the command dictionary
             return False
 
-    def menu_entry(self,input):
-        print("placeholder")
+    def menu_entry(self):
+        """
+        Initializes an Entry instance and starts the entry loop.
+        """
+        entry_instance = Entry()
+        entry_instance.entry_loop()
 
     def menu_set(self):
         """
@@ -1050,7 +1076,7 @@ class MainMenu:
             print(GREETING("See you next time!"))
             exit()
 
-    def navigate_away(self):
+    def navigate_away(self,cancel=None):
         """
         Requests confirmation from the user before navigating away from a current task or job.
         This method is invoked typically when an operation that might have unsaved changes or
@@ -1066,7 +1092,9 @@ class MainMenu:
         could cancel the current job. The confirmation is handled by the 'yes_or_no' function,
         which parses user input and returns a boolean value based on the user's response.
         """
-        cancel = get_input(italic(red("\nNavigating away will cancel the current job. Do you want to proceed? (y/n):\n")))
+        if not cancel:
+            cancel = get_input(italic(red("\nNavigating away will cancel the current job. Do you want to proceed? (y/n):\n")))
+
         return yes_or_no(cancel)
 
     def menu_help(self,context=None):
@@ -1125,9 +1153,19 @@ class MainMenu:
 ## Process execution
 class Entry:
     """
-
+    Class to handle trade entries.
     """
     def __init__(self,input = None):
+        """
+        Initialize the Entry class.
+
+        Args:
+            input (list, optional): Initial input data. Defaults to None.
+
+        This method sets up the initial state of the Entry object, including the input data and
+        the data settings required for logging trades. It then starts the entry loop to process
+        the trade entry.
+        """
         self.input = input
         self.data_settings = {
             "action": ("open/close/update/bulk", None),
@@ -1137,10 +1175,31 @@ class Entry:
             "stop": ("#.########", None),
             "atr": ("#.####%", None)
         }
-        self.cmd = "entry"  
-        self.entry_loop(self.input)      
+        self.cmd = "entry"     
 
     def key_validator(self):
+        """
+        Validate the keys in data_settings, checking for None values.
+
+        This method validates the current data settings to identify any keys that have not been provided
+        with values. It updates the data settings based on the input data and returns a list of keys that
+        still need values.
+
+        Returns:
+            tuple: A list of keys with None values and the updated data_settings dictionary.
+
+        Example:
+            If 'self.data_settings' contains:
+            {
+                "action": ("open/close/update/bulk", None),
+                "asset": ("any", "AAPL"),
+                "type": ("long/short", None),
+                "price": ("#.########", "150.00"),
+                "stop": ("#.########", None),
+                "atr": ("#.####%", None)
+            }
+            Then, 'key_validator' will return (["action", "type", "stop", "atr"], updated_data_settings)
+        """
         key_none=[]
         format_validator = DataFormatValidation(self.data_settings, self.input)
         
@@ -1155,54 +1214,130 @@ class Entry:
 
         return key_none, self.data_settings
 
-    def entry_loop(self,input):
-        print(TITLE("Starting to log a trade..."))
-        Help(self.cmd).entry_specifics()
+    def entry_loop(self):
+        """
+        Main loop to process trade entries, ensuring all required data is provided.
 
+        This method starts the process of logging a trade. It continuously checks for any missing data
+        in the data settings and prompts the user to provide the necessary information. Once all required
+        data is collected, it calls the 'save_data' method to save the trade entry.
+
+        Example:
+            This method will prompt the user to enter values for the missing keys in 'data_settings',
+            validate the input, and update 'data_settings' until all necessary information is provided.
+        """
+        print(TITLE("Starting to log a trade..."))
+        
         while True:
             # Check if any string is None after validating input against formats/keys
             key_none, self.data_settings = self.key_validator()
-
+            
             if key_none:
-                self.data_setting, self.input = self.input_request(key_none)
+                Help(self.cmd).help_specifics()
+            
+            if not key_none:
+                break
+            
+            input_request = self.input_request(key_none)
+            
+            if input_request:
+                # Merge new data with existing data settings
+                new_data_settings, _ = input_request
+                for k, v in new_data_settings.items():
+                    if v[1] is not None:
+                        self.data_settings[k] = v
+                self.input = []
             else:
                 break
-                     
-        if yes_or_no("Please confirm the entries above are correct (y/n):"):
+                
+        if not key_none:
             self.save_data()
 
     def input_request(self,key_none):
+        """
+        Request input from the user for the keys with None values.
+
+        This method prompts the user to provide input for the keys that have not been provided with values.
+        It validates the user input and updates the data settings accordingly. If the input is canceled,
+        it returns False.
+
+        Args:
+            key_none (list): List of keys that need user input.
+
+        Returns:
+            tuple: Updated data_settings dictionary and prompt, or False if input is canceled.
+
+        Example:
+            If 'key_none' contains ["type", "price"], the method will prompt the user to enter values for
+            these keys and update 'data_settings' with the new values.
+        """
         while key_none:
             key = key_none[0]
             prompt = PATH(self.cmd, self.data_settings ,key)
             input_validate = InputValidation(prompt, context=self.cmd)
             format_validator = DataFormatValidation(self.data_settings, prompt)
 
-            ###### Continue here
-            if not input_validate.multi_menu_call(silent=True):  
-                print (self.data_settings)
+            if not input_validate.multi_menu_call(silent=True):
                 new_data_details,_,_ = format_validator.get_results()
-                print (new_data_details)
                 for k in self.data_settings:
                     if new_data_details[k][1] is not None:
                         self.data_settings[k] = new_data_details[k] 
-                        
-                return new_data_details, prompt        
+                return new_data_details, prompt 
+            else:
+                cancel = input_validate.multi_menu_call()
+                if cancel:
+                    return False                           
 
     def bulk_mode(self):
+        """
+        Handle bulk mode import for trade entries.
+
+        This method is called when the 'bulk' action is selected. It allows the user to import multiple
+        trade entries in bulk.
+        """
         print("Hey, you selected bulk-mode import!")
 
     def save_data(self):
-        action, asset, type, price, stop, atr = (data_details[k][1] for k in data_details)
-        print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {asset} {type} {price} {stop} {atr}"))
+        """
+        Save the trade data after confirmation from the user.
 
+        This method prints the collected trade data for the user to review and confirm. If the user
+        confirms the entries, it saves the trade data.
+
+        Example:
+            The method will print the trade data in the format:
+            "./entry action asset type price stop atr"
+            It will then prompt the user to confirm the entries, and if confirmed, log the trade.
+        """
+        action, asset, type, price, stop, atr = (self.data_settings[k][1] for k in self.data_settings)
+
+        print(green("\nTrade to be logged:"))
+        print(f"./{self.cmd} {action} {asset} {type} {price} {stop} {atr}")            
+        confirmation = get_input(italic(green("Please confirm the entries above are correct (y/n):\n")))
+        
+        confirmation = yes_or_no(confirmation)
+        
+        if confirmation:
+            print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {asset} {type} {price} {stop} {atr}"))
+            
 
 class Help:
     def __init__(self, context=None):
         self.context = context
+        self.class_name = context.capitalize()
+        self.instance = globals()[self.class_name]()
 
-    def entry_specifics(self):
-        print("help entry specifics")
+    def help_specifics(self):
+        # Introduce the section with an underlined and green-colored title
+        print(underscore(green(f"\n{self.class_name} help and tips:")))
+
+        data_settings = self.instance.data_settings
+        
+        print("- The order of data input is: " + ", ".join(data_settings.keys()))
+
+        for key, (options, value) in data_settings.items():
+            option_text = "any value" if options == "any" else options
+            print(f"- {key.capitalize()} options: {option_text}")
 
     def pro_tips():
         """
@@ -1259,7 +1394,6 @@ class Help:
         # Explain how to update data once a subcommand is defined
         print("- After some subcommand is defined, editting it can be done by inputting a forced declaration")
         print(dim("  Example: current validated data is './entry asset:SPY type:short', entering 'type:long' will update the previously set value"))
-
 
 
 ##Main loop    
