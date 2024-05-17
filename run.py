@@ -182,20 +182,52 @@ def yes_or_no(input):
 
 
 def PATH(cmd = None, data_settings = None, key = None):
-    #print path
+    """
+    Prints the path style based on the provided command and data settings, and prompts the user 
+    for input depending on the format specified in the data settings.
+
+    Args:
+        cmd (str, optional): The command string to be styled and printed.
+        data_settings (dict, optional): A dictionary containing settings that determine the 
+                                        format of the user prompt.
+        key (str, optional): The key to look up in the data_settings to determine the format 
+                             of the user prompt.
+
+    Returns:
+        str: The user input based on the specified format in the data_settings.
+
+    The function performs the following steps:
+    1. Prints the styled command path.
+    2. Prompts the user for input based on the data_settings and key:
+       - If data_settings is None, it prompts the user to enter a command.
+       - If data_settings is provided, it looks up the format (fmt) for the specified key.
+         - If fmt is "any", it prompts the user to enter any characters except spaces or menu calls.
+         - If the input does not contain ":", it prepends the key to the input.
+         - For other formats, it prompts the user to enter input based on the specified format.
+    """
+    # Print the styled command path
     print(styles.path_style(cmd,data_settings))
 
-    #print request
+    # Check if data_settings is provided
     if data_settings is None:
+        # Prompt the user to enter a command
         prompt = get_input("Enter command: \n")
     else:
+        # Look up the format for the specified key in the data_settings
         fmt, _ = data_settings[key]
-        
+
+        # Check if the format is "any"
         if fmt == "any":
+            # Prompt the user to enter any characters except spaces or menu calls
             prompt = get_input(f"Enter trade {key} (any characteres, but space or menu calls) or 'help': \n")
-            if ":" not in prompt:
-                prompt[0] = f"{key}:{prompt[0]}"
-                
+
+            # If the input does not contain ":", prepend the key to the input
+            is_menu = InputValidation(prompt).multi_menu_call(silent=True)
+            
+            if not is_menu:
+                if ":" not in prompt:
+                    # Prompt the user to enter input based on the specified format
+                    prompt[0] = f"{key}:{prompt[0]}"
         else:
             prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
 
@@ -856,22 +888,26 @@ class DataFormatValidation:
         3. Handle remaining values for all None values in the dictionary.
         """        
         remaining_data = []
+        processed_keys = set()  # Track processed keys
+
         if self.input_data:
             # First pass: handle key-value pairs
             for item in self.input_data:
                 key, value = self.has_colon(item)
-                
+
                 if key:
-                    if key in self.input_dictionary:
+                    if key in self.input_dictionary and key not in processed_keys:
                         format = self.input_dictionary[key][0]
                         validated_value = self.format_validation(value, format, True)
-                        
+
                         if validated_value:
                             if self.output_dictionary[key][1] is None:
                                 self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                                processed_keys.add(key)  # Mark key as processed
                             else:
-                                if yes_or_no(message = f"{key} already has a value. Do you want to overwrite it?"):
+                                if yes_or_no(message=f"{key} already has a value. Do you want to overwrite it?"):
                                     self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                                    processed_keys.add(key)  # Mark key as processed
                                 else:
                                     self.invalidated_data.append(item)
                         else:
@@ -879,27 +915,31 @@ class DataFormatValidation:
                     else:
                         self.invalidated_data.append(item)
                 else:
-                    remaining_data.append(item)
+                    # Check if the item is a menu call
+                    is_menu = InputValidation([item]).multi_menu_call(silent=True)
+                    if not is_menu:
+                        remaining_data.append(item)
 
             # Second pass: handle percentage values.
             percentage_keys = [key for key, (format, value) in self.output_dictionary.items() if format.endswith('%')]
             for item in remaining_data[:]:
                 original_item = item  # Store the original item
-                
+
                 if item.endswith('%'):
                     for key in percentage_keys:
-                        if self.output_dictionary[key][1] is None:
+                        if self.output_dictionary[key][1] is None and key not in processed_keys:
                             format = self.input_dictionary[key][0]
                             format_details = self.format_category_check(format)
                             item = item[:-1]  # Remove the percentage sign for validation
                             try:
-                                item_as_float = float(item) / 100                            
+                                item_as_float = float(item) / 100
                                 item = f"{item_as_float:.{format_details['decimals']}f}"
                                 validated_value = self.format_validation(item, format, True)
-                                
+
                                 if validated_value:
                                     self.output_dictionary[key] = (format, f"{key}:{validated_value}")
                                     remaining_data.remove(original_item)  # Remove the original item
+                                    processed_keys.add(key)  # Mark key as processed
                                     break
                             except ValueError:
                                 self.invalidated_data.append(original_item)
@@ -909,17 +949,36 @@ class DataFormatValidation:
             for item in remaining_data[:]:
                 original_item = item  # Store the original item
                 validated = False
-                for key, (format, value) in self.output_dictionary.items():
+
+                for key, (format, value) in self.input_dictionary.items():
+                    if key in processed_keys:
+                        continue
+
                     if value is None and not format.endswith('%') and format != "any":  # Skip percentage and 'any' formats
                         validated_value = self.format_validation(item, format, True)
                         if validated_value:
                             self.output_dictionary[key] = (format, f"{key}:{validated_value}")
                             remaining_data.remove(original_item)  # Remove the original item
+                            processed_keys.add(key)  # Mark key as processed
                             validated = True
                             break
+                    elif value is not None:
+                        # If a value is already set and the format is not key:value, do not update it
+                        if ':' not in item:
+                            continue
+
+                        validated_value = self.format_validation(item, format, True)
+
+                        if validated_value:
+                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                            remaining_data.remove(original_item)
+                            processed_keys.add(key)  # Mark key as processed
+                            validated = True
+                            break
+
                 if not validated:
                     self.invalidated_data.append(original_item)
-
+            
     def print_errors(self):
         """
         Print any invalidated data and remaining input data that were not processed.
@@ -1004,7 +1063,11 @@ class MainMenu:
             # Handle commands that do not have a specific context
             elif not context:
                 if cmd in ["entry", "set"]:
-                    return function(child_command) if child_command else function()
+                    # Explicitly check for empty list and treat it as no additional arguments
+                    if child_command == []:
+                        return function()
+                    else:
+                        return function(child_command) if child_command else function()
                 elif cmd == "cancel":
                     # Print a message if there is nothing to cancel
                     print(italic(red("\nThere is nothing to cancel at the moment.")))
@@ -1025,11 +1088,11 @@ class MainMenu:
             # Return False if the command is not found in the command dictionary
             return False
 
-    def menu_entry(self):
+    def menu_entry(self,child_command=None):
         """
         Initializes an Entry instance and starts the entry loop.
         """
-        entry_instance = Entry()
+        entry_instance = Entry(child_command)
         entry_instance.entry_loop()
 
     def menu_set(self):
@@ -1205,7 +1268,7 @@ class Entry:
         
         if self.input:
             self.data_settings, _,_ = format_validator.get_results()
-            
+
         for key,(fmt,value) in self.data_settings.items():        
             if not value:
                 key_none.append(key)
@@ -1228,13 +1291,12 @@ class Entry:
         """
         print(TITLE("Starting to log a trade..."))
         
+        Help(self.cmd).help_specifics()
+
+        # Check if any string is None after validating input against formats/keys
+        key_none, self.data_settings = self.key_validator()
+        
         while True:
-            # Check if any string is None after validating input against formats/keys
-            key_none, self.data_settings = self.key_validator()
-            
-            if key_none:
-                Help(self.cmd).help_specifics()
-            
             if not key_none:
                 break
             
@@ -1249,6 +1311,9 @@ class Entry:
                 self.input = []
             else:
                 break
+
+            # Refresh Check if any string is None after validating input against formats/keys
+            key_none, self.data_settings = self.key_validator()
                 
         if not key_none:
             self.save_data()
@@ -1277,16 +1342,28 @@ class Entry:
             input_validate = InputValidation(prompt, context=self.cmd)
             format_validator = DataFormatValidation(self.data_settings, prompt)
 
-            if not input_validate.multi_menu_call(silent=True):
-                new_data_details,_,_ = format_validator.get_results()
-                for k in self.data_settings:
-                    if new_data_details[k][1] is not None:
-                        self.data_settings[k] = new_data_details[k] 
-                return new_data_details, prompt 
+            if prompt:
+                if not input_validate.multi_menu_call(silent=True):
+                    new_data_details,_,_ = format_validator.get_results()
+                    
+                    for k in self.data_settings:
+                        if new_data_details[k][1] is not None:
+
+                            # Ensure only key:value formatted data can update non-None values
+                            if self.data_settings[k][1] is not None:
+                                if ':' not in new_data_details[k][1]:
+                                    continue
+                                else:
+                                    self.data_settings[k] = new_data_details[k]
+                            
+                    return new_data_details, prompt 
+                
+                else:
+                    cancel = input_validate.multi_menu_call()
+                    if cancel:
+                        return False  
             else:
-                cancel = input_validate.multi_menu_call()
-                if cancel:
-                    return False                           
+                print(ERROR("Hey, that is empty! Try again please."))                      
 
     def bulk_mode(self):
         """
@@ -1322,23 +1399,72 @@ class Entry:
             
 
 class Help:
+    """
+    Provides methods to display help information and professional tips for using the command line interface
+    effectively. This class helps users understand how to utilize various commands, handle input data, and
+    navigate the application efficiently.
+
+    Attributes:
+        context (str): The name of the class to create an instance of, provided in lowercase.
+        class_name (str): The capitalized class name derived from the context.
+        instance (object): An instance of the class specified by the context.
+    """
     def __init__(self, context=None):
+        """
+        Initializes the Help class with the specified context, creating an instance of the relevant class.
+
+        Args:
+            context (str): The name of the class to create an instance of, provided in lowercase.
+        """
         self.context = context
         self.class_name = context.capitalize()
         self.instance = globals()[self.class_name]()
 
     def help_specifics(self):
+        """
+        Print help and tips based on the current data settings.
+
+        This method dynamically prints out the specifics for each key in the data settings of the specified
+        class instance. It provides information about the order of data input and the options available for
+        each key. Additional tips and guidelines are provided to help users understand how to input data
+        correctly and efficiently.
+        """
         # Introduce the section with an underlined and green-colored title
         print(underscore(green(f"\n{self.class_name} help and tips:")))
 
         data_settings = self.instance.data_settings
+        # Get an iterator for the items of the dictionary
+        item_iterator = iter(data_settings.items())
+
+        # Extract the first item
+        first_key, (_, _) = next(item_iterator)
         
         print("- The order of data input is: " + ", ".join(data_settings.keys()))
 
-        for key, (options, value) in data_settings.items():
-            option_text = "any value" if options == "any" else options
-            print(f"- {key.capitalize()} options: {option_text}")
-
+        for key, (format, value) in data_settings.items():
+            format_text = "any value" if format == "any" else format
+            print(f"- {key.capitalize()} options: {format_text}")
+        
+        print("\n- You can still use any of the main menu calls, plese note that some of them might need to cancel the current job")
+        print("- Some data can be autovalidated if they correctly match the format requested")
+        print("- Invalid data that does not match any of the formats above will be automatically invalidated")
+        print("- If too much data is input, only the first calls in the line will work, all extra ones are automatically invalidated")
+        print("- If the Format accepts any characters, do not use spaces, that will only catch the first word before space")
+        print("- The next data request in the line will prompt as a request, but you can still input valid data for other missing data")
+        print("- The validated current data collection can be checked just above the prompt request")
+        print("- To edit any validated data use format data:value")
+        print(dim(f"  Example: '{first_key}:value'"))
+        print("- Data using format 'any' can be forced from other input requests by using the edit option described above")
+        print("- The data interpreter will try the best to match the input data, some type of inputs take precedence over others")
+        print(f"   1. Menu calls used force string ./ at the beggining e.g. './{self.context}'")
+        print(f"   2. Simple menu calls e.g. '{self.context}'")
+        print(f"   3. Bulk mode")
+        print(f"   4. Data using key-value format (e.g '{first_key}:value')")
+        print(f"   5. Data that can be autovalidated as text input")
+        print(f"   6. % values")
+        print(f"   7. Numbers")
+        print("- Alert messages will advise of any invalidated data and request new input as needed")
+        
     def pro_tips():
         """
         Displays professional tips for using the command line interface more effectively. These tips are aimed

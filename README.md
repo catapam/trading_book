@@ -1,6 +1,5 @@
-> Menu calls are not working from inside menu options, started after conversion to OOP
-> multimenu call is not working if started from main menu
-> other menu functions: set,check,recalc (more on help)
+> menu is being accepted as asset name, but menu still executes as no_context
+> other menu functions: set,check,recalc
 > bulk mode
 > database input
 > calculations
