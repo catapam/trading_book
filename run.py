@@ -54,21 +54,30 @@ class StyleOutput:
             return f"{cls._styles[style_name]}{message}{cls._styles['none']}"
         return styled_message
 
+    @staticmethod
+    def path_style(cmd=None,args=None):
+        if cmd is None:
+            return gray(f"\n./")
+        elif args is None:
+            return gray(f"\n./{cmd}")
+        else:
+            return gray(f"\n./{cmd} {' '.join(delete_none_values(args,1))}")       
+
 
 ##Styling atributes
 styles = StyleOutput()
-GREETING = styles.apply_style('orange')
-TITLE = styles.apply_style('title')
-PATH = styles.apply_style('gray')
-QUESTION = styles.apply_style('cyan')
-SUCCESS= styles.apply_style('green_background')
-ERROR= styles.apply_style('error')
+gray = styles.apply_style('gray')
 red = styles.apply_style('red')
 green = styles.apply_style('green')
 bold = styles.apply_style('bold')
 italic = styles.apply_style('italic')
 underscore = styles.apply_style('underscore')
-dim = styles.apply_style('dim')   
+dim = styles.apply_style('dim') 
+GREETING = styles.apply_style('orange')
+TITLE = styles.apply_style('title')
+QUESTION = styles.apply_style('cyan')
+SUCCESS = styles.apply_style('green_background')
+ERROR = styles.apply_style('error') 
 
 
 ##General Functions
@@ -164,61 +173,25 @@ def yes_or_no(input):
             continue
 
 
-def pro_tips():
-    """
-    Displays professional tips for using the command line interface more effectively. These tips are aimed
-    at helping users understand how to utilize various commands, handle input data, and navigate the application
-    efficiently.
+def PATH(cmd = None, data_settings = None, key = None):
+    #print path
+    print(styles.path_style(cmd,data_settings))
 
-    The function outlines several key aspects:
-    - Priority of commands, especially how 'help' is processed.
-    - How to use the './' prefix to explicitly call menu commands.
-    - The importance of correct data entry and how the system handles complex command strings.
-    - Guidance on using advanced features like chaining subcommands or specifying data types explicitly.
-    """
-    # Introduce the section with an underlined and green-colored title
-    print(underscore(green("\nPro tips:")))
-    
-    # Explain the hierarchical importance of the 'help' command
-    print("- 'help' will always take priority over any other commands")
-    print("- Typing 'help' followed by another command will provide more details on that command")
-    print(dim("  Example: 'help entry'"))
+    #print request
+    if data_settings is None:
+        prompt = get_input("Enter command: \n")
+    else:
+        fmt, _ = data_settings[key]
+        
+        if fmt == "any":
+            prompt = get_input(f"Enter trade {key} (any characteres, but space or menu calls) or 'help': \n")
+            if ":" not in prompt:
+                prompt = f"{key}:{prompt}"
+                
+        else:
+            prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
 
-    # Suggest starting with simple commands for newcomers
-    print("- Allow some learning curve, and execute single commands at first")
-
-    # Describe how to explicitly initiate main menu commands
-    print("- Adding './' to the start of a string forces it to be checked as main menu call")
-    print(dim("  Example: './entry"))
-
-    # Provide examples on chaining commands and skipping ahead in workflows
-    print("- You can also chain subcomands and skip steps ahead")
-    print(dim("  Example: './entry open short'"))
-
-    # Detail how the system prompts for missing data during operations
-    print("- When running a job, you will be asked any missing data.")
-
-    # Explain data input handling and validation
-    print("- If any data is requested, you can see all the data already input just above the command request")
-    print(dim("  Example: './entry open short' will appear just above the input request after running this command"))
-    print("- When inputting data you can use multiple strings on any order, the data will try validate it correctly")
-    print(dim("  Example: 'short ./entry open' or 'short entry open' will still work"))
-
-    # Discuss forced data validation for specific subcommands
-    print("- You can force data to be validated against a specific subcommand")
-    print(dim("  Example: 'short ./entry action:open' or 'entry type:short open'"))
-
-    # Highlight the requirement for declaring data types for certain entries
-    print("- Some data entries like 'asset:' in './entry' MUST be declared with it's data type")
-    print(dim("  Example: 'short ./entry asset:SPY open', where 'SPY' alone would be invalid, but ok as 'asset:SPY'"))
-
-    # Illustrate how excess data input is managed
-    print("- Too much data input will be handled by validating what can be validated first in the order of entries and delete others")
-    print(dim("  Example: 'short ./entry asset:SPY long', 'type' will be set to 'short' and 'long' will be removed as both are 'type'"))
-
-    # Explain how to update data once a subcommand is defined
-    print("- After some subcommand is defined, editting it can be done by inputting a forced declaration")
-    print(dim("  Example: current validated data is './entry asset:SPY type:short', entering 'type:long' will update the previously set value"))
+    return prompt
 
 
 ## Validations
@@ -977,7 +950,7 @@ class MainMenu:
             "exit": self.exit_program,
             "check": self.menu_check,
             "help": self.menu_help,
-            "entry": log_trade,
+            "entry": Entry,
             "set": self.menu_set,
             "cancel": self.navigate_away,
             "back": self.navigate_away
@@ -1134,8 +1107,7 @@ class MainMenu:
                 #context specifics placeholder
                 print(" - Type 'back' or 'cancel' to return to where you were")
                 print(" - Type 'help' again to see general help")
-                print(PATH(f"\n./help {context}"))
-                cmd=get_input("Enter command: \n")
+                cmd = PATH(context)
                 input_validate= InputValidation(cmd,context="help")
                 
                 if cmd == 'back' or cmd == 'cancel':
@@ -1150,104 +1122,145 @@ class MainMenu:
         return list(cls().command.keys())
         
 
-## Entry process execution
-#### This will become a Class too              
-def log_trade(input=None):
+## Process execution
+class Entry:
     """
-    Log a trade with optional user interaction for details.
-    """
-   
-    data_details = {
-        "action": ("open/close/update/bulk", None),
-        "asset": ("any",None),
-        "type": ("long/short", None),
-        "price": ("#.########", None),
-        "stop": ("#.########", None),
-        "atr": ("#.####%", None)
-    }
 
-    print(TITLE("Starting to log a trade..."))
-    stop_process=False
-    bulk = False
-    validation_need = True
-    key_none = []
-    cmd="entry"
-    format_validator = DataFormatValidation(data_details, input)
-    
-    def key_validator(data_details):
-        if input:
-            data_details, _,_ = format_validator.get_results()
+    """
+    def __init__(self,input = None):
+        self.input = input
+        self.data_settings = {
+            "action": ("open/close/update/bulk", None),
+            "asset": ("any",None),
+            "type": ("long/short", None),
+            "price": ("#.########", None),
+            "stop": ("#.########", None),
+            "atr": ("#.####%", None)
+        }
+        self.cmd = "entry"  
+        self.entry_loop(self.input)      
+
+    def key_validator(self):
+        key_none=[]
+        format_validator = DataFormatValidation(self.data_settings, self.input)
+        
+        if self.input:
+            self.data_settings, _,_ = format_validator.get_results()
             
-        for key,(fmt,value) in data_details.items():        
+        for key,(fmt,value) in self.data_settings.items():        
             if not value:
                 key_none.append(key)
+            if value =='bulk':
+                self.bulk_mode()    
 
-        return key_none, data_details
-    
-    while True:
-        key_none=[]
-        
-        if any(detail[1] == "bulk" for detail in data_details.values()):
-            bulk = True
-            break 
+        return key_none, self.data_settings
 
-        if validation_need:
-            key_none, data_details = key_validator(data_details)
-            
-            while key_none:
-                key = key_none[0]
-                fmt, _ = data_details[key]
+    def entry_loop(self,input):
+        print(TITLE("Starting to log a trade..."))
+        Help(self.cmd).entry_specifics()
 
-                print(PATH(f"\n./entry {' '.join(delete_none_values(data_details,1))}"))
-                if fmt == "any":
-                    prompt = get_input(f"Enter trade {key} (any characteres, but space or menu calls) or 'help': \n")
-                    if ":" not in prompt:
-                        prompt = f"{key}:{prompt}"
-                else:
-                    prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
-                    
-                words = prompt.split()
+        while True:
+            # Check if any string is None after validating input against formats/keys
+            key_none, self.data_settings = self.key_validator()
 
-                if "bulk" in words:
-                    bulk = True
-                    break
-
-                input_validate = InputValidation(prompt, context=cmd)
-                format_validator = DataFormatValidation(data_details, prompt)
-                if not input_validate.multi_menu_call(silent=True):
-                    new_data_details, _, _ = format_validator.get_results()
-
-                    # Update only the specific keys to maintain previous values
-                    for k in data_details:
-                        if new_data_details[k][1] is not None:
-                            data_details[k] = new_data_details[k]
-                    
-                    key_none=[]
-                    words=[]
-                else:
-                    if not input_validate.multi_menu_call():
-                        stop_process=False
-                    else:
-                        stop_process=True 
-                        validation_need = False
-                        break 
-
-            if not stop_process:
-                key_none, data_details = key_validator(data_details)
-
-                if not key_none:
-                    validation_need = False 
+            if key_none:
+                self.data_setting, self.input = self.input_request(key_none)
             else:
-                break   
-        else:
-            break
-        
-    if bulk:
+                break
+                     
+        if yes_or_no("Please confirm the entries above are correct (y/n):"):
+            self.save_data()
+
+    def input_request(self,key_none):
+        while key_none:
+            key = key_none[0]
+            prompt = PATH(self.cmd, self.data_settings ,key)
+            input_validate = InputValidation(prompt, context=self.cmd)
+            format_validator = DataFormatValidation(self.data_settings, prompt)
+
+            ###### Continue here
+            if not input_validate.multi_menu_call(silent=True):  
+                print (self.data_settings)
+                new_data_details,_,_ = format_validator.get_results()
+                print (new_data_details)
+                for k in self.data_settings:
+                    if new_data_details[k][1] is not None:
+                        self.data_settings[k] = new_data_details[k] 
+                        
+                return new_data_details, prompt        
+
+    def bulk_mode(self):
         print("Hey, you selected bulk-mode import!")
-    else:
+
+    def save_data(self):
         action, asset, type, price, stop, atr = (data_details[k][1] for k in data_details)
         print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {asset} {type} {price} {stop} {atr}"))
-   
+
+
+class Help:
+    def __init__(self, context=None):
+        self.context = context
+
+    def entry_specifics(self):
+        print("help entry specifics")
+
+    def pro_tips():
+        """
+        Displays professional tips for using the command line interface more effectively. These tips are aimed
+        at helping users understand how to utilize various commands, handle input data, and navigate the application
+        efficiently.
+
+        The function outlines several key aspects:
+        - Priority of commands, especially how 'help' is processed.
+        - How to use the './' prefix to explicitly call menu commands.
+        - The importance of correct data entry and how the system handles complex command strings.
+        - Guidance on using advanced features like chaining subcommands or specifying data types explicitly.
+        """
+        # Introduce the section with an underlined and green-colored title
+        print(underscore(green("\nPro tips:")))
+        
+        # Explain the hierarchical importance of the 'help' command
+        print("- 'help' will always take priority over any other commands")
+        print("- Typing 'help' followed by another command will provide more details on that command")
+        print(dim("  Example: 'help entry'"))
+
+        # Suggest starting with simple commands for newcomers
+        print("- Allow some learning curve, and execute single commands at first")
+
+        # Describe how to explicitly initiate main menu commands
+        print("- Adding './' to the start of a string forces it to be checked as main menu call")
+        print(dim("  Example: './entry"))
+
+        # Provide examples on chaining commands and skipping ahead in workflows
+        print("- You can also chain subcomands and skip steps ahead")
+        print(dim("  Example: './entry open short'"))
+
+        # Detail how the system prompts for missing data during operations
+        print("- When running a job, you will be asked any missing data.")
+
+        # Explain data input handling and validation
+        print("- If any data is requested, you can see all the data already input just above the command request")
+        print(dim("  Example: './entry open short' will appear just above the input request after running this command"))
+        print("- When inputting data you can use multiple strings on any order, the data will try validate it correctly")
+        print(dim("  Example: 'short ./entry open' or 'short entry open' will still work"))
+
+        # Discuss forced data validation for specific subcommands
+        print("- You can force data to be validated against a specific subcommand")
+        print(dim("  Example: 'short ./entry action:open' or 'entry type:short open'"))
+
+        # Highlight the requirement for declaring data types for certain entries
+        print("- Some data entries like 'asset:' in './entry' MUST be declared with it's data type")
+        print(dim("  Example: 'short ./entry asset:SPY open', where 'SPY' alone would be invalid, but ok as 'asset:SPY'"))
+
+        # Illustrate how excess data input is managed
+        print("- Too much data input will be handled by validating what can be validated first in the order of entries and delete others")
+        print(dim("  Example: 'short ./entry asset:SPY long', 'type' will be set to 'short' and 'long' will be removed as both are 'type'"))
+
+        # Explain how to update data once a subcommand is defined
+        print("- After some subcommand is defined, editting it can be done by inputting a forced declaration")
+        print(dim("  Example: current validated data is './entry asset:SPY type:short', entering 'type:long' will update the previously set value"))
+
+
 
 ##Main loop    
 def main_loop():
@@ -1271,7 +1284,7 @@ def main_loop():
     print(underscore(GREETING("\n\n\nWelcome to Trading Book System!")))
     menu = MainMenu()
     menu.menu_help()
-    pro_tips()
+    Help.pro_tips()
 
     #Declare needed global
     global main_menu
@@ -1279,8 +1292,7 @@ def main_loop():
 
     #Loop requesting and processing inputs
     while True:
-        print(PATH("\n./"))
-        cmd = get_input("Enter a valid command or 'help': \n")
+        cmd = PATH()
         if cmd:
             input_validate=InputValidation(cmd)
             input_validate.multi_menu_call()
