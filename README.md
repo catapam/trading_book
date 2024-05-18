@@ -1,6 +1,7 @@
-> menu is being accepted as asset name, but menu still executes as no_context
 > other menu functions: set,check,recalc
-> bulk mode
+> entry is asking trade confirmation when using back or cancel
+> menu inside Help is not working
+> bulk mode should stop loop
 > database input
 > calculations
 > database update
