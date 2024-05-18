@@ -362,7 +362,12 @@ class InputValidation:
             - This means the parent command is 'entry' with 'open' as a sub-command or parameter.
         """
         child_command = []
+        cancelled_commands = []
+        
         for word in words:
+            if word.startswith("./"):
+                word = word[2:]
+
             if word in main_menu:
                 if not parent_command:
                      # Set the word as parent command if no parent command has been identified yet
@@ -371,14 +376,18 @@ class InputValidation:
                      # If the parent command is 'help' and no child command has been set, set this word as child command
                     child_command = word
                 else:
-                    # Handle errors when an invalid command structure is detected
-                    self.print_command_error(word, parent_command, child_command)
+                    cancelled_commands.append(word)
             else:
                 # Append non-command words as child commands or parameters
                 child_command.append(word)
+
+        if cancelled_commands:
+            # Handle errors when an invalid command structure is detected
+            self.print_command_error(cancelled_commands, parent_command, child_command)
+            
         return parent_command, child_command
 
-    def print_command_error(self, word, parent_command, child_command):
+    def print_command_error(self, words, parent_command, child_command):
         """
         Displays error messages for command conflicts, typically when multiple main commands
         are requested simultaneously.
@@ -388,9 +397,9 @@ class InputValidation:
             parent_command (str): The primary command in conflict.
             child_command (list of str): Any child commands that were being processed.
         """
-        print(ERROR("\nYou cannot request 2 main menu actions at once"))
-        print(ERROR(f"The call to '{word}' will be ignored"))
-        print(ERROR(f"If you want to execute '{word}', 'cancel' the current job and start over again with '{word}'"))
+        print(ERROR("\nYou cannot request more than one main menu actions at once"))
+        print(ERROR(f"The call to '{words}' will be ignored"))
+        print(ERROR(f"If you want to execute '{words}', 'cancel' the current job and start over again with one of the commands in '{words}'"))
         print(ERROR(f"Only the menu call to '{parent_command} {child_command}' will be executed:"))
 
     def multi_menu_call(self, silent=False):
@@ -436,7 +445,7 @@ class InputValidation:
             extracted_command, extracted_child = self.extract_command(child_command)
             if extracted_command:
                 parent_command = extracted_command
-                child_command = extracted_child
+                _, child_command = self.finalize_commands(extracted_child, parent_command)
             else:
                 # Finalize commands if no direct command was found
                 parent_command, child_command = self.finalize_commands(words, parent_command)
@@ -448,13 +457,14 @@ class InputValidation:
             else:
                 # Finalize commands if no further command extraction is possible
                 _, child_command = self.finalize_commands(child_command, parent_command)
-
+        
         # Validate if the determined parent command is a recognized main menu command
         if parent_command in main_menu:
             if not silent:
                 # If not silent, ensure the child_command is in list form for processing
                 if not isinstance(child_command, list):
                     child_command = [child_command]
+                        
                 # Create an instance of MainMenu to process the command
                 menu = MainMenu()
                 return menu.process_command(parent_command, child_command, context=self.context)
@@ -886,99 +896,151 @@ class DataFormatValidation:
         1. Handle key-value pairs.
         2. Handle percentage values.
         3. Handle remaining values for all None values in the dictionary.
-        """        
+        """
         remaining_data = []
         processed_keys = set()  # Track processed keys
 
         if self.input_data:
-            # First pass: handle key-value pairs
-            for item in self.input_data:
-                key, value = self.has_colon(item)
+            remaining_data = self.handle_key_value_pairs(self.input_data, processed_keys)
+            remaining_data = self.handle_percentage_values(remaining_data, processed_keys)
+            self.handle_remaining_values(remaining_data, processed_keys)
 
-                if key:
-                    if key in self.input_dictionary and key not in processed_keys:
-                        format = self.input_dictionary[key][0]
-                        validated_value = self.format_validation(value, format, True)
+    def handle_key_value_pairs(self, input_data, processed_keys):
+        """
+        Processes input data to handle key-value pairs.
 
-                        if validated_value:
-                            if self.output_dictionary[key][1] is None:
+        This method validates and updates the output dictionary with key-value pairs from the input data,
+        ensuring that each key is processed only once. If a key already has a value, it asks for user
+        confirmation before overwriting it. Non-key-value inputs and menu calls are collected for further
+        processing.
+
+        Args:
+            input_data (list): List of input data strings to be processed.
+            processed_keys (set): Set of keys that have already been processed to avoid duplicates.
+
+        Returns:
+            list: A list of remaining data items that were not processed as key-value pairs.
+
+        """
+        remaining_data = []
+        for item in input_data:
+            key, value = self.has_colon(item)
+
+            if key:
+                if key in self.input_dictionary and key not in processed_keys:
+                    format = self.input_dictionary[key][0]
+                    validated_value = self.format_validation(value, format, True)
+
+                    if validated_value:
+                        if self.output_dictionary[key][1] is None:
+                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                            processed_keys.add(key)  # Mark key as processed
+                        else:
+                            if yes_or_no(message=f"{key} already has a value. Do you want to overwrite it?"):
                                 self.output_dictionary[key] = (format, f"{key}:{validated_value}")
                                 processed_keys.add(key)  # Mark key as processed
                             else:
-                                if yes_or_no(message=f"{key} already has a value. Do you want to overwrite it?"):
-                                    self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                                    processed_keys.add(key)  # Mark key as processed
-                                else:
-                                    self.invalidated_data.append(item)
-                        else:
-                            self.invalidated_data.append(item)
+                                self.invalidated_data.append(item)
                     else:
                         self.invalidated_data.append(item)
                 else:
-                    # Check if the item is a menu call
-                    is_menu = InputValidation([item]).multi_menu_call(silent=True)
-                    if not is_menu:
-                        remaining_data.append(item)
+                    self.invalidated_data.append(item)
+            else:
+                # Check if the item is a menu call
+                is_menu = InputValidation([item]).multi_menu_call(silent=True)
+                if not is_menu:
+                    remaining_data.append(item)
 
-            # Second pass: handle percentage values.
-            percentage_keys = [key for key, (format, value) in self.output_dictionary.items() if format.endswith('%')]
-            for item in remaining_data[:]:
-                original_item = item  # Store the original item
+        return remaining_data
 
-                if item.endswith('%'):
-                    for key in percentage_keys:
-                        if self.output_dictionary[key][1] is None and key not in processed_keys:
-                            format = self.input_dictionary[key][0]
-                            format_details = self.format_category_check(format)
-                            item = item[:-1]  # Remove the percentage sign for validation
-                            try:
-                                item_as_float = float(item) / 100
-                                item = f"{item_as_float:.{format_details['decimals']}f}"
-                                validated_value = self.format_validation(item, format, True)
+    def handle_percentage_values(self, remaining_data, processed_keys):
+        """
+        Processes remaining data to handle percentage values.
 
-                                if validated_value:
-                                    self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                                    remaining_data.remove(original_item)  # Remove the original item
-                                    processed_keys.add(key)  # Mark key as processed
-                                    break
-                            except ValueError:
-                                self.invalidated_data.append(original_item)
+        This method validates and updates the output dictionary with percentage values from the remaining data,
+        ensuring that each key is processed only once. It converts percentage strings to their decimal equivalents
+        before validation. Non-percentage inputs are collected for further processing.
+
+        Args:
+            remaining_data (list): List of remaining data items to be processed.
+            processed_keys (set): Set of keys that have already been processed to avoid duplicates.
+
+        Returns:
+            list: A list of remaining data items that were not processed as percentage values.
+
+        """
+        percentage_keys = [key for key, (format, value) in self.output_dictionary.items() if format.endswith('%')]
+        for item in remaining_data[:]:
+            original_item = item  # Store the original item
+
+            if item.endswith('%'):
+                for key in percentage_keys:
+                    if self.output_dictionary[key][1] is None and key not in processed_keys:
+                        format = self.input_dictionary[key][0]
+                        format_details = self.format_category_check(format)
+                        item = item[:-1]  # Remove the percentage sign for validation
+                        try:
+                            item_as_float = float(item) / 100
+                            item = f"{item_as_float:.{format_details['decimals']}f}"
+                            validated_value = self.format_validation(item, format, True)
+
+                            if validated_value:
+                                self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                                remaining_data.remove(original_item)  # Remove the original item
+                                processed_keys.add(key)  # Mark key as processed
                                 break
+                        except ValueError:
+                            self.invalidated_data.append(original_item)
+                            break
 
-            # Third pass: handle remaining values in order for all None values in the dictionary
-            for item in remaining_data[:]:
-                original_item = item  # Store the original item
-                validated = False
+        return remaining_data
 
-                for key, (format, value) in self.input_dictionary.items():
-                    if key in processed_keys:
+    def handle_remaining_values(self, remaining_data, processed_keys):
+        """
+        Processes remaining data to handle non-key-value and non-percentage values.
+
+        This method validates and updates the output dictionary with values from the remaining data,
+        ensuring that each key is processed only once. It checks for keys that are still None and updates
+        them with the first matching value from the input. Remaining invalid data is collected for reporting.
+
+        Args:
+            remaining_data (list): List of remaining data items to be processed.
+            processed_keys (set): Set of keys that have already been processed to avoid duplicates.
+
+        """
+        for item in remaining_data[:]:
+            original_item = item  # Store the original item
+            validated = False
+
+            for key, (format, value) in self.input_dictionary.items():
+                if key in processed_keys:
+                    continue
+
+                if value is None and not format.endswith('%') and format != "any":  # Skip percentage and 'any' formats
+                    validated_value = self.format_validation(item, format, True)
+                    if validated_value:
+                        self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                        remaining_data.remove(original_item)  # Remove the original item
+                        processed_keys.add(key)  # Mark key as processed
+                        validated = True
+                        break
+                elif value is not None:
+                    # If a value is already set and the format is not key:value, do not update it
+                    if ':' not in item:
                         continue
 
-                    if value is None and not format.endswith('%') and format != "any":  # Skip percentage and 'any' formats
-                        validated_value = self.format_validation(item, format, True)
-                        if validated_value:
-                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                            remaining_data.remove(original_item)  # Remove the original item
-                            processed_keys.add(key)  # Mark key as processed
-                            validated = True
-                            break
-                    elif value is not None:
-                        # If a value is already set and the format is not key:value, do not update it
-                        if ':' not in item:
-                            continue
+                    validated_value = self.format_validation(item, format, True)
 
-                        validated_value = self.format_validation(item, format, True)
+                    if validated_value:
+                        self.output_dictionary[key] = (format, f"{key}:{validated_value}")
+                        remaining_data.remove(original_item)
+                        processed_keys.add(key)  # Mark key as processed
+                        validated = True
+                        break
 
-                        if validated_value:
-                            self.output_dictionary[key] = (format, f"{key}:{validated_value}")
-                            remaining_data.remove(original_item)
-                            processed_keys.add(key)  # Mark key as processed
-                            validated = True
-                            break
-
-                if not validated:
-                    self.invalidated_data.append(original_item)
-            
+            if not validated:
+                self.invalidated_data.append(original_item)  
+                     
     def print_errors(self):
         """
         Print any invalidated data and remaining input data that were not processed.
@@ -1095,7 +1157,7 @@ class MainMenu:
         entry_instance = Entry(child_command)
         entry_instance.entry_loop()
 
-    def menu_set(self):
+    def menu_set(self,child_command=None):
         """
         Logic for managing settings
         """
@@ -1162,51 +1224,12 @@ class MainMenu:
 
     def menu_help(self,context=None):
         """
-        Displays the help menu with guidance on available commands and additional context-specific help
-        if a particular context is provided. This method provides dynamic help content based on user interaction.
-
-        Args:
-            context (str, optional): Specifies a particular context for which help is requested. If 'help' is
-                                     directly passed as the context, it resets to None to show the main help menu.
-                                     Defaults to None, which shows the general help menu.
-
-        Returns:
-            bool: False to indicate that the help display loop has ended (typically when user exits help).
-        
-        The method enters a loop that continues to provide help information until the user decides to exit
-        by entering 'back' or 'cancel'. If additional commands are entered, it validates them and potentially
-        re-invokes the help with a new context or performs the requested action.
+        Calls Help Class and initiate help_loop
         """
         if context == "help":
             context=None
         
-        while True:
-            if context is None:
-                print(TITLE("Help Information:"))
-                print("  - Type 'entry' to enter a trade")
-                print("  - Type 'check' to view stats")
-                print("  - Type 'set' to open settings")
-                print("  - Type 'help' to get help")
-                print("  - Type 'back' to return to previous location")
-                print("  - Type 'cancel' to cancel current job")
-                print("  - Type 'exit' to quit the program")
-                print("\nCommands described above can be ran from anywhere in the program.")
-                return False
-            
-            else:
-                print(TITLE(f"Help for '{context}':"))
-                #context specifics placeholder
-                print(" - Type 'back' or 'cancel' to return to where you were")
-                print(" - Type 'help' again to see general help")
-                cmd = PATH(context)
-                input_validate= InputValidation(cmd,context="help")
-                
-                if cmd == 'back' or cmd == 'cancel':
-                    return False
-                elif input_validate.multi_menu_call(silent=True):
-                    input_validate.multi_menu_call(cmd)
-                else:
-                    continue   
+        Help(context=context).help_loop()
 
     @classmethod
     def get_menu_keys(cls):
@@ -1283,7 +1306,7 @@ class Entry:
 
         This method starts the process of logging a trade. It continuously checks for any missing data
         in the data settings and prompts the user to provide the necessary information. Once all required
-        data is collected, it calls the 'save_data' method to save the trade entry.
+        data is collected, it calls the 'confirm_data' method to save the trade entry.
 
         Example:
             This method will prompt the user to enter values for the missing keys in 'data_settings',
@@ -1315,9 +1338,8 @@ class Entry:
             # Refresh Check if any string is None after validating input against formats/keys
             key_none, self.data_settings = self.key_validator()
                 
-        if not key_none:
-            self.save_data()
-
+        self.confirm_data()
+                     
     def input_request(self,key_none):
         """
         Request input from the user for the keys with None values.
@@ -1374,7 +1396,7 @@ class Entry:
         """
         print("Hey, you selected bulk-mode import!")
 
-    def save_data(self):
+    def confirm_data(self):
         """
         Save the trade data after confirmation from the user.
 
@@ -1391,12 +1413,16 @@ class Entry:
         print(green("\nTrade to be logged:"))
         print(f"./{self.cmd} {action} {asset} {type} {price} {stop} {atr}")            
         confirmation = get_input(italic(green("Please confirm the entries above are correct (y/n):\n")))
-        
         confirmation = yes_or_no(confirmation)
         
         if confirmation:
             print(SUCCESS(f"\nTrade logged with user input:\nentry {action} {asset} {type} {price} {stop} {atr}"))
-            
+        else:
+            print(ERROR(f"\nTrade cancelled:\nentry {action} {asset} {type} {price} {stop} {atr}"))
+            return False
+
+    def save_data():
+        print("save data to the DB")
 
 class Help:
     """
@@ -1417,8 +1443,10 @@ class Help:
             context (str): The name of the class to create an instance of, provided in lowercase.
         """
         self.context = context
-        self.class_name = context.capitalize()
-        self.instance = globals()[self.class_name]()
+        if isinstance(self.context, list):
+            self.context = ' '.join(self.context)
+        self.class_name = self.context.capitalize() if isinstance(self.context, str) else None
+        self.instance = globals()[self.class_name]() if self.class_name and self.class_name in globals() else None
 
     def help_specifics(self):
         """
@@ -1430,7 +1458,7 @@ class Help:
         correctly and efficiently.
         """
         # Introduce the section with an underlined and green-colored title
-        print(underscore(green(f"\n{self.class_name} help and tips:")))
+        print(underscore(green(f"\n\n{self.class_name} help and tips:")))
 
         data_settings = self.instance.data_settings
         # Get an iterator for the items of the dictionary
@@ -1438,14 +1466,15 @@ class Help:
 
         # Extract the first item
         first_key, (_, _) = next(item_iterator)
-        
+
+        print(green(italic("\nCharacteristics:")))
         print("- The order of data input is: " + ", ".join(data_settings.keys()))
 
         for key, (format, value) in data_settings.items():
             format_text = "any value" if format == "any" else format
             print(f"- {key.capitalize()} options: {format_text}")
-        
-        print("\n- You can still use any of the main menu calls, plese note that some of them might need to cancel the current job")
+        print(green(italic("\nFunctionalities:")))
+        print("- You can still use any of the main menu calls, plese note that some of them might need to cancel the current job")
         print("- Some data can be autovalidated if they correctly match the format requested")
         print("- Invalid data that does not match any of the formats above will be automatically invalidated")
         print("- If too much data is input, only the first calls in the line will work, all extra ones are automatically invalidated")
@@ -1521,6 +1550,55 @@ class Help:
         print("- After some subcommand is defined, editting it can be done by inputting a forced declaration")
         print(dim("  Example: current validated data is './entry asset:SPY type:short', entering 'type:long' will update the previously set value"))
 
+    def help_loop(self):
+        """
+        Displays the help menu with guidance on available commands and additional context-specific help
+        if a particular context is provided. This method provides dynamic help content based on user interaction.
+
+        Args:
+            context (str, optional): Specifies a particular context for which help is requested. If 'help' is
+                                     directly passed as the context, it resets to None to show the main help menu.
+                                     Defaults to None, which shows the general help menu.
+
+        Returns:
+            bool: False to indicate that the help display loop has ended (typically when user exits help).
+        
+        The method enters a loop that continues to provide help information until the user decides to exit
+        by entering 'back' or 'cancel'. If additional commands are entered, it validates them and potentially
+        re-invokes the help with a new context or performs the requested action.
+        """     
+        while True:
+            if self.context is None:
+                print(TITLE("Help Information:"))
+                print("  - Type 'entry' to enter a trade")
+                print("  - Type 'check' to view stats")
+                print("  - Type 'set' to open settings")
+                print("  - Type 'help' to get help")
+                print("  - Type 'back' to return to previous location")
+                print("  - Type 'cancel' to cancel current job")
+                print("  - Type 'exit' to quit the program")
+                print("\nCommands described above can be ran from anywhere in the program.")
+                return False
+            
+            else:
+                print(TITLE(f"Help for '{self.context}':"))
+
+                if self.context not in ("check","exit"):
+                    self.help_specifics()
+                    
+                print("\n-  Type 'back' or 'cancel' to return to where you were")
+                print("-  Type 'help' again to see general help")
+                
+                cmd = PATH(f"help {self.context}")
+                input_validate= InputValidation(cmd)
+                
+                if cmd == 'back' or cmd == 'cancel':
+                    break
+                elif input_validate.multi_menu_call(silent=True):
+                    input_validate.multi_menu_call()
+                else:
+                    continue  
+        
 
 ##Main loop    
 def main_loop():
