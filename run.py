@@ -1,4 +1,5 @@
 import re
+import json
 import gspread
 import datetime
 from gspread.exceptions import APIError
@@ -1865,9 +1866,10 @@ class Entry:
                 key_none.append(key)
             if value in ["bulk", "action:bulk"]:
                 self.bulk_mode()
+                key_none = []
         return key_none, self.data_settings
 
-    def entry_loop(self):
+    def entry_loop(self, silent=False):
         """
         Main loop to process trade entries, ensuring all required data
         is provided.
@@ -1883,9 +1885,9 @@ class Entry:
             keys in 'data_settings', validate the input, and update
             'data_settings' until all necessary information is provided.
         """
-        print(TITLE("Starting to log a trade..."))
-
-        Help(self.cmd).help_specifics()
+        if not silent:
+            print(TITLE("Starting to log a trade..."))
+            Help(self.cmd).help_specifics()
 
         # Check if any string is None after validating input against
         # formats/keys
@@ -1907,11 +1909,16 @@ class Entry:
                 self.input = []
             else:
                 break
+
             # Refresh Check if any string is None after validating input
             # against formats/keys
-
             key_none, self.data_settings = self.key_validator()
-        self.confirm_data()
+
+        if not key_none:
+            if silent:
+                self.confirm_data(silent=silent)
+            else:
+                self.confirm_data()
 
     def input_request(self, key_none):
         """
@@ -1971,9 +1978,61 @@ class Entry:
         This method is called when the 'bulk' action is selected.
         It allows the user to import multiple tradeentries in bulk.
         """
-        print("Hey, you selected bulk-mode import!")
+        print(TITLE("\nHey, you selected bulk-mode import!"))
+        print(green(italic("\nTips:")))
+        print("- This import uses JSON formatting:")
+        print(dim('  Example: [{"action":"open", "asset":"btc", "type":"long", '
+                  '"price":"15.00000000", "stop":"10.00000000", "atr":"0.0100"},'
+                  '{"action":"close", "asset":"btc", "type":"long", '
+                  '"price":"17.00000000", "stop":"13.00000000", "atr":"0.0110"}]'
+                  )
+              )
 
-    def confirm_data(self):
+        try:
+            data_import=[]
+            data_import = PATH(self.cmd)
+            bulk_data = self.clean_data_import(str(data_import))
+            print(bulk_data)  # For testing purposes
+            formatted_entries = []
+            for entry_data in bulk_data:
+                self.input = [
+                    f"{key}:{value}" for key, value in entry_data.items()
+                ]
+                self.data_settings = {
+                    "action": ("open/close/update/bulk", None),
+                    "asset": ("any", None),
+                    "type": ("long/short", None),
+                    "price": ("#.########", None),
+                    "stop": ("#.########", None),
+                    "atr": ("#.####%", None),
+                }
+                self.entry_loop(silent=True)
+                formatted_entry = " ".join(self.input)
+                formatted_entries.append(formatted_entry)
+            print(formatted_entries)  # Print the formatted entries
+        except json.JSONDecodeError as e:
+            print(ERROR(f"\nInvalid JSON format: {e}"))
+
+    def clean_data_import(self, data_import):
+        """
+        Clean the data import string by removing all instances of "['" and "']",
+        and replacing "', '" with a space.
+
+        Args:
+            data_import (str): The input string to clean.
+
+        Returns:
+            str: The cleaned string.
+        """
+        # Remove the specified substrings
+        data_import = data_import.replace("'[", "").replace("]'", "")
+        
+        # Replace "', '" with a space
+        data_import = data_import.replace("', '", " ")
+        
+        return data_import
+
+    def confirm_data(self, silent=False):
         """
         Get confirmation from the user.
 
@@ -1991,32 +2050,46 @@ class Entry:
             self.data_settings[k][1] for k in self.data_settings
         )
 
-        print(green("\nTrade to be logged:"))
-        print(f"./{self.cmd} {action} {asset} {type} {price} {stop} {atr}")
-        confirmation = get_input(
-            italic(
-                green("Please confirm the entries above are correct (y/n):\n")
+        if not silent:
+            print(green("\nTrade to be logged:"))
+            print(f"./{self.cmd} {action} {asset} {type} {price} {stop} {atr}")
+            confirmation = get_input(
+                italic(
+                    green("Please confirm the entries above are correct (y/n):\n")
+                )
             )
-        )
-        confirmation = yes_or_no(confirmation)
+            confirmation = yes_or_no(confirmation)
+        else:
+            confirmation = True
 
         if confirmation:
             self.save_data()
-            print(
-                SUCCESS(
-                    f"\nTrade stored with user input:\nentry "
-                    "{action} {asset} {type} {price} {stop} {atr}"
+            if not silent:
+                print(
+                    SUCCESS(
+                        "\nTrade stored with user input:\nentry "
+                        f"{action} {asset} {type} {price} {stop} {atr}"
                     )
                 )
-            Calculation.start()
+            else:
+                print(SUCCESS(
+                    f"Entry saved: {action} {asset} {type} {price} {stop} {atr}"
+                    )
+                )
         else:
-            print(
-                ERROR(
-                    f"\nTrade cancelled:\nentry "
-                    "{action} {asset} {type} {price} {stop} {atr}"
+            if not silent:
+                print(
+                    ERROR(
+                        "\nTrade cancelled:\nentry "
+                        f"{action} {asset} {type} {price} {stop} {atr}"
                     )
                 )
-            return False
+            else:
+                print(ERROR(
+                    f"Entry cancelled: {action} {asset} {type} {price} {stop} {atr}"
+                    )
+                )
+
 
     def data_base_prep(self):
         """
@@ -2025,19 +2098,23 @@ class Entry:
         action, asset, type, price, stop, atr = (
             self.data_settings[k][1].split(':')[1] for k in self.data_settings
         )
-        
+
+        price = float(price)
+        stop = float(stop)
+        atr = float(atr)
+
         # Get the current time
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
+
         # Format the data
         formatted_data = [current_time, action, asset, type, price, stop, atr]
-        
+
         return formatted_data
-    
+
     def save_data(self):
-        formatted_data = self.data_base_prep
-        print(f"formated data:{formatted_data}")
-        print("save data to the DB")
+        formatted_data = self.data_base_prep()
+
+        DB.write(self.cmd, formatted_data)
 
 
 class Help:
