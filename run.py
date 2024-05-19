@@ -1829,7 +1829,7 @@ class Entry:
         }
         self.cmd = "entry"
 
-    def key_validator(self):
+    def key_validator(self, bulk_mode=False):
         """
         Validate the keys in data_settings, checking for None values.
 
@@ -1866,8 +1866,9 @@ class Entry:
                 key_none.append(key)
             if value in ["bulk", "action:bulk"]:
                 self.bulk_mode()
+                bulk_mode = True
                 key_none = []
-        return key_none, self.data_settings
+        return key_none, self.data_settings, bulk_mode
 
     def entry_loop(self, silent=False):
         """
@@ -1891,34 +1892,35 @@ class Entry:
 
         # Check if any string is None after validating input against
         # formats/keys
+        key_none, self.data_settings, bulk_mode = self.key_validator()
 
-        key_none, self.data_settings = self.key_validator()
+        if not bulk_mode:
+            while True:
+                if not key_none:
+                    break
+                input_request = self.input_request(key_none)
 
-        while True:
-            if not key_none:
-                break
-            input_request = self.input_request(key_none)
+                if input_request:
+                    # Merge new data with existing data settings
 
-            if input_request:
-                # Merge new data with existing data settings
+                    new_data_settings, _ = input_request
+                    for k, v in new_data_settings.items():
+                        if v[1] is not None:
+                            self.data_settings[k] = v
+                    self.input = []
+                else:
+                    break
 
-                new_data_settings, _ = input_request
-                for k, v in new_data_settings.items():
-                    if v[1] is not None:
-                        self.data_settings[k] = v
-                self.input = []
-            else:
-                break
-
-            # Refresh Check if any string is None after validating input
-            # against formats/keys
-            key_none, self.data_settings = self.key_validator()
+                # Refresh Check if any string is None after validating input
+                # against formats/keys
+                key_none, self.data_settings, _ = self.key_validator()
 
         if not key_none:
             if silent:
                 self.confirm_data(silent=silent)
             else:
                 self.confirm_data()
+                # Calculation.start()
 
     def input_request(self, key_none):
         """
@@ -1981,23 +1983,27 @@ class Entry:
         print(TITLE("\nHey, you selected bulk-mode import!"))
         print(green(italic("\nTips:")))
         print("- This import uses JSON formatting:")
-        print(dim('  Example: [{"action":"open", "asset":"btc", "type":"long", '
-                  '"price":"15.00000000", "stop":"10.00000000", "atr":"0.0100"},'
+        print(dim('  Example: [{"action":"open", "asset":"btc", '
+                  '"type":"long", "price":"15.00000000", '
+                  '"stop":"10.00000000", "atr":"0.0100"},'
                   '{"action":"close", "asset":"btc", "type":"long", '
-                  '"price":"17.00000000", "stop":"13.00000000", "atr":"0.0110"}]'
+                  '"price":"17.00000000", "stop":"13.00000000", '
+                  '"atr":"0.0110"}]'
                   )
               )
 
         try:
-            data_import=[]
             data_import = PATH(self.cmd)
-            bulk_data = self.clean_data_import(str(data_import))
-            print(bulk_data)  # For testing purposes
-            formatted_entries = []
+            reformated_data = self.clean_data_import(str(data_import))
+            bulk_data = json.loads(reformated_data)
+
+            print("\nBulk import report:")
+
             for entry_data in bulk_data:
                 self.input = [
                     f"{key}:{value}" for key, value in entry_data.items()
                 ]
+
                 self.data_settings = {
                     "action": ("open/close/update/bulk", None),
                     "asset": ("any", None),
@@ -2006,17 +2012,18 @@ class Entry:
                     "stop": ("#.########", None),
                     "atr": ("#.####%", None),
                 }
+
                 self.entry_loop(silent=True)
-                formatted_entry = " ".join(self.input)
-                formatted_entries.append(formatted_entry)
-            print(formatted_entries)  # Print the formatted entries
+
+            # Calculation.start()
         except json.JSONDecodeError as e:
             print(ERROR(f"\nInvalid JSON format: {e}"))
 
     def clean_data_import(self, data_import):
         """
-        Clean the data import string by removing all instances of "['" and "']",
-        and replacing "', '" with a space.
+        Clean the data import string by removing all
+        instances of "['" and "']", and replacing "',
+        '" with a space.
 
         Args:
             data_import (str): The input string to clean.
@@ -2026,10 +2033,10 @@ class Entry:
         """
         # Remove the specified substrings
         data_import = data_import.replace("'[", "").replace("]'", "")
-        
+
         # Replace "', '" with a space
         data_import = data_import.replace("', '", " ")
-        
+
         return data_import
 
     def confirm_data(self, silent=False):
@@ -2055,7 +2062,10 @@ class Entry:
             print(f"./{self.cmd} {action} {asset} {type} {price} {stop} {atr}")
             confirmation = get_input(
                 italic(
-                    green("Please confirm the entries above are correct (y/n):\n")
+                    green(
+                        "Please confirm the entries above"
+                        " are correct (y/n):\n"
+                        )
                 )
             )
             confirmation = yes_or_no(confirmation)
@@ -2073,27 +2083,38 @@ class Entry:
                 )
             else:
                 print(SUCCESS(
-                    f"Entry saved: {action} {asset} {type} {price} {stop} {atr}"
+                    f"Entry saved: {action} {asset} {type}"
+                    f" {price} {stop} {atr}"
                     )
                 )
         else:
             if not silent:
                 print(
                     ERROR(
-                        "\nTrade cancelled:\nentry "
+                        "\nTrade failed:\nentry "
                         f"{action} {asset} {type} {price} {stop} {atr}"
                     )
                 )
             else:
                 print(ERROR(
-                    f"Entry cancelled: {action} {asset} {type} {price} {stop} {atr}"
+                    f"Entry failed: {action} {asset} {type}"
+                    f" {price} {stop} {atr}"
                     )
                 )
 
-
     def data_base_prep(self):
         """
-        Prepare data for database writting
+        Prepare data for database writing.
+
+        This method prepares the trade data to be written to the database.
+        It extracts values from self.data_settings, converts numerical values
+        to floats, and formats the data with the current timestamp.
+
+        Returns:
+            list: A list containing the formatted data ready
+                for database writing.
+                The list includes the current timestamp, action,
+                asset, type, price, stop, and atr values.
         """
         action, asset, type, price, stop, atr = (
             self.data_settings[k][1].split(':')[1] for k in self.data_settings
@@ -2112,6 +2133,14 @@ class Entry:
         return formatted_data
 
     def save_data(self):
+        """
+        Save the prepared data to the database.
+
+        This method formats the data using data_base_prep and then writes the
+        formatted data to the database using the DB.write method.
+
+        The data is written to the worksheet identified by self.cmd.
+        """
         formatted_data = self.data_base_prep()
 
         DB.write(self.cmd, formatted_data)
@@ -2481,7 +2510,6 @@ class TradingBookSystem:
                 indefinitely until an exit command is
                 issued or the program is terminated.
     """
-
     def __init__(self):
         """
         Initializes the TradingBookSystem class, setting up the
