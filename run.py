@@ -10,12 +10,15 @@ from google.auth.exceptions import GoogleAuthError, DefaultCredentialsError
 
 class DataBaseActions:
     """
-    This class provides methods to interact with a Google Sheets spreadsheet. It allows reading data
-    from and writing data to specific worksheets within the spreadsheet.
+    This class provides methods to interact with a Google Sheets spreadsheet.
+    It allows reading data from and writing data to specific worksheets
+    within the spreadsheet.
 
     Attributes:
-        SCOPE (list): A list of scopes required for accessing Google Sheets and Google Drive.
-        CREDS (Credentials): Credentials object created from the service account file.
+        SCOPE (list): A list of scopes required for accessing Google Sheets
+        and Google Drive.
+        CREDS (Credentials): Credentials object created from the service
+        account file.
         SCOPED_CREDS (Credentials): Credentials object with specified scopes.
         GSPREAD_CLIENT (gspread.Client): Authorized gspread client.
         SHEET (gspread.Spreadsheet): The Google Sheets spreadsheet object.
@@ -23,8 +26,9 @@ class DataBaseActions:
 
     def __init__(self):
         """
-        Initializes the DataBaseActions class by setting up the necessary Google API credentials
-        and authorizing the gspread client to access the specified spreadsheet.
+        Initializes the DataBaseActions class by setting up the necessary
+        Google API credentials and authorizing the gspread client to
+        access the specified spreadsheet.
         """
         try:
             self.SCOPE = [
@@ -87,7 +91,7 @@ class DataBaseActions:
             )
 
 
-##Styling
+# Styling
 
 
 class StyleOutput:
@@ -142,7 +146,8 @@ class StyleOutput:
             return gray(f"\n./{cmd} {' '.join(delete_none_values(args,1))}")
 
 
-##Styling atributes
+# Styling atributes
+
 
 styles = StyleOutput()
 gray = styles.apply_style("gray")
@@ -160,7 +165,7 @@ ERROR = styles.apply_style("error")
 DB = DataBaseActions()
 
 
-##General usage functions
+# General usage functions
 
 
 def get_input(prompt):
@@ -215,7 +220,8 @@ def delete_none_values(data_details, num):
     and builds a list of these values, excluding any that are None. This is particularly useful
     in data processing where missing values need to be omitted from the output.
     """
-    # Extract values from the specified index in each tuple or list in the dictionary values
+    # Extract values from the specified index in each tuple or list in the
+    # dictionary values
 
     trade_values = [value[num] for value in data_details.values()]
 
@@ -244,7 +250,8 @@ def yes_or_no(input):
     The function recognizes a variety of informal affirmations and negations to accommodate different
     user input styles.
     """
-    # Dictionary of valid yes and no responses for broader acceptance of user input
+    # Dictionary of valid yes and no responses for broader acceptance of user
+    # input
 
     affirmative = [
         "y",
@@ -260,7 +267,18 @@ def yes_or_no(input):
         "absolutely",
         "indeed",
     ]
-    negative = ["n", "no", "nope", "nah", "not", "dont", "nn", "nno", "noo", "never"]
+    negative = [
+        "n",
+        "no",
+        "nope",
+        "nah",
+        "not",
+        "dont",
+        "nn",
+        "nno",
+        "noo",
+        "never",
+    ]
 
     while True:
         if isinstance(input, list) and len(input) > 0:
@@ -322,7 +340,8 @@ def PATH(cmd=None, data_settings=None, key=None):
         # Check if the format is "any"
 
         if fmt == "any":
-            # Prompt the user to enter any characters except spaces or menu calls
+            # Prompt the user to enter any characters except spaces or menu
+            # calls
 
             prompt = get_input(
                 f"Enter trade {key} (any characteres, but space or menu calls) or 'help': \n"
@@ -334,7 +353,8 @@ def PATH(cmd=None, data_settings=None, key=None):
 
             if not is_menu:
                 if ":" not in prompt:
-                    # Prompt the user to enter input based on the specified format
+                    # Prompt the user to enter input based on the specified
+                    # format
 
                     prompt[0] = f"{key}:{prompt[0]}"
         else:
@@ -342,7 +362,7 @@ def PATH(cmd=None, data_settings=None, key=None):
     return prompt
 
 
-## Validations
+# Validations
 
 
 class InputValidation:
@@ -486,11 +506,13 @@ class InputValidation:
                 word = word[2:]
             if word in main_menu:
                 if not parent_command:
-                    # Set the word as parent command if no parent command has been identified yet
+                    # Set the word as parent command if no parent command has
+                    # been identified yet
 
                     parent_command = word
                 elif parent_command == "help" and not child_command:
-                    # If the parent command is 'help' and no child command has been set, set this word as child command
+                    # If the parent command is 'help' and no child command has
+                    # been set, set this word as child command
 
                     child_command = word
                 else:
@@ -585,20 +607,24 @@ class InputValidation:
                     words, parent_command
                 )
         else:
-            # If a help command was found, process remaining words to see if a command follows
+            # If a help command was found, process remaining words to see if a
+            # command follows
 
             extracted_command, _ = self.extract_command(child_command)
             if extracted_command:
                 child_command = extracted_command
             else:
-                # Finalize commands if no further command extraction is possible
+                # Finalize commands if no further command extraction is
+                # possible
 
                 _, child_command = self.finalize_commands(child_command, parent_command)
-        # Validate if the determined parent command is a recognized main menu command
+        # Validate if the determined parent command is a recognized main menu
+        # command
 
         if parent_command in main_menu:
             if not silent:
-                # If not silent, ensure the child_command is in list form for processing
+                # If not silent, ensure the child_command is in list form for
+                # processing
 
                 if not isinstance(child_command, list):
                     child_command = [child_command]
@@ -610,7 +636,8 @@ class InputValidation:
                 )
             return True
         else:
-            # Print an error message and return False if the command is not recognized
+            # Print an error message and return False if the command is not
+            # recognized
 
             if not silent:
                 print(ERROR("\nInvalid menu call, none of the inputs validate as menu"))
@@ -684,27 +711,33 @@ class DataFormatValidation:
         The function is ideal for parsing and validating commands or options where multiple choices are allowed.
         """
 
-        # Split the format string by slashes to separate out the different options
+        # Split the format string by slashes to separate out the different
+        # options
 
         parts = format.split("/")
 
-        # If there are multiple parts, format them into a readable string and regex pattern
+        # If there are multiple parts, format them into a readable string and
+        # regex pattern
 
         if len(parts) > 1:
-            # Creates a formatted string for the message, using commas and 'or' before the last item
+            # Creates a formatted string for the message, using commas and 'or'
+            # before the last item
 
             formatted_string = ", ".join(parts[:-1]) + " or " + parts[-1] + ".\n"
-            # Creates a regex pattern that matches any of the options (this is wrapped in ^ and $ to match whole strings only)
+            # Creates a regex pattern that matches any of the options (this is
+            # wrapped in ^ and $ to match whole strings only)
 
             formatted_regex = "^(" + "|".join(parts) + ")$"
         else:
-            # If there's only one part, format it simply without additional punctuation or conjunctions
+            # If there's only one part, format it simply without additional
+            # punctuation or conjunctions
 
             formatted_string = parts[0] + ".\n"
             # Regex for a single option should simply match that exact string
 
             formatted_regex = "^(" + parts[0] + ")$'"
-        # Return a dictionary containing the formatted message, regex, and other relevant details
+        # Return a dictionary containing the formatted message, regex, and
+        # other relevant details
 
         return {
             "message": f"{formatted_string}",
@@ -736,7 +769,7 @@ class DataFormatValidation:
             format = '#.##%'
             Returns -> {
                 'message': "numbers with up to 2 decimal places are accepted.\nEnter as a decimal or percentage (e.g., 0.10 or 10%).\n",
-                'regex': r'^\d+(?:\.\d{1,2})?(?:%?)$',
+                'regex': r'^\\d+(?:\\.\\d{1,2})?(?:%?)$',
                 'decimals': 2,
                 'percentage': True,
                 'auto_validate': False
@@ -754,26 +787,30 @@ class DataFormatValidation:
 
         if not all(c in "#.%" for c in format):
             return
-        # Adjust for percentage formats by stripping the '%' sign and setting the flag
+        # Adjust for percentage formats by stripping the '%' sign and setting
+        # the flag
 
         if format.endswith("%"):
             format = format[:-1]
             percentage = True
-        # Determine the position of the decimal point to calculate decimal precision
+        # Determine the position of the decimal point to calculate decimal
+        # precision
 
         decimal_point_index = format.find(".")
 
-        # Calculate the number of decimal places based on the position of the decimal point
+        # Calculate the number of decimal places based on the position of the
+        # decimal point
 
         if decimal_point_index != -1:
             decimal_count = len(format) - decimal_point_index - 1
         else:
             decimal_count = 0
-        # Construct the appropriate message and regex based on the number of decimals
+        # Construct the appropriate message and regex based on the number of
+        # decimals
 
         if decimal_count == 0:
             formatted_string = "only whole numbers. ex.: 50, 28 , 173...\nAny decimals will be rounded.\n"
-            formatted_regex = "^\d+$"
+            formatted_regex = "^\\d+$"
         else:
             formatted_string = (
                 f"numbers with up to {decimal_count} decimal places are accepted.\n"
@@ -786,7 +823,8 @@ class DataFormatValidation:
                 "Enter as a decimal or percentage (e.g., 0.10 or 10%).\n"
             )
             formatted_regex = r"^\d+(?:\.\d{1," + str(decimal_count) + "})?(?:%?)$"
-        # Return a dictionary containing the format details and validation tools
+        # Return a dictionary containing the format details and validation
+        # tools
 
         return {
             "message": f"{formatted_string}",
@@ -829,7 +867,8 @@ class DataFormatValidation:
             pattern types (numerical or slash-separated). If neither pattern matches, the return will be the result
             of attempting a numerical format parsing by default.
         """
-        # If 'any' Return a dictionary containing the formatted message, regex, and other relevant details
+        # If 'any' Return a dictionary containing the formatted message, regex,
+        # and other relevant details
 
         if format == "any":
             return {
@@ -844,7 +883,8 @@ class DataFormatValidation:
 
             format_details = self.format_number_details(format)
 
-            # If the format is not numerical, process it as a slash-separated list
+            # If the format is not numerical, process it as a slash-separated
+            # list
 
             if format_details is None:
                 format_details = self.format_slash_separated_details(format)
@@ -1039,7 +1079,8 @@ class DataFormatValidation:
                 key, value = item.split(":", 1)
                 if key in data_details:
                     data_details[key] = (data_details[key][0], value)
-        # Attempt to update details with invalidated entries that have specific keys
+        # Attempt to update details with invalidated entries that have specific
+        # keys
 
         for value in invalidated:
             if value and ":" in value:
@@ -1118,7 +1159,9 @@ class DataFormatValidation:
                                     format,
                                     f"{key}:{validated_value}",
                                 )
-                                processed_keys.add(key)  # Mark key as processed
+                                # Mark key as processed
+
+                                processed_keys.add(key)
                             else:
                                 self.invalidated_data.append(item)
                     else:
@@ -1165,7 +1208,9 @@ class DataFormatValidation:
                     ):
                         format = self.input_dictionary[key][0]
                         format_details = self.format_category_check(format)
-                        item = item[:-1]  # Remove the percentage sign for validation
+                        # Remove the percentage sign for validation
+
+                        item = item[:-1]
                         try:
                             item_as_float = float(item) / 100
                             item = f"{item_as_float:.{format_details['decimals']}f}"
@@ -1179,7 +1224,9 @@ class DataFormatValidation:
                                 remaining_data.remove(
                                     original_item
                                 )  # Remove the original item
-                                processed_keys.add(key)  # Mark key as processed
+                                # Mark key as processed
+
+                                processed_keys.add(key)
                                 break
                         except ValueError:
                             self.invalidated_data.append(original_item)
@@ -1215,12 +1262,15 @@ class DataFormatValidation:
                             format,
                             f"{key}:{validated_value}",
                         )
-                        remaining_data.remove(original_item)  # Remove the original item
+                        # Remove the original item
+
+                        remaining_data.remove(original_item)
                         processed_keys.add(key)  # Mark key as processed
                         validated = True
                         break
                 elif value is not None:
-                    # If a value is already set and the format is not key:value, do not update it
+                    # If a value is already set and the format is not
+                    # key:value, do not update it
 
                     if ":" not in item:
                         continue
@@ -1258,10 +1308,14 @@ class DataFormatValidation:
         if self.input_data:
             self.process_input_data()
             self.print_errors()
-            return self.output_dictionary, self.invalidated_data, self.input_data
+            return (
+                self.output_dictionary,
+                self.invalidated_data,
+                self.input_data,
+            )
 
 
-## Menu
+# Menu
 
 
 class MainMenu:
@@ -1309,12 +1363,14 @@ class MainMenu:
         or if specific context conditions are met, ensuring that commands like 'entry' and 'set' can
         operate with the necessary parameters.
         """
-        # Get the function associated with the command from the command dictionary
+        # Get the function associated with the command from the command
+        # dictionary
 
         function = self.command.get(cmd)
 
         if function:
-            # Handle simple commands that do not require additional arguments or context
+            # Handle simple commands that do not require additional arguments
+            # or context
 
             if cmd in ["exit", "check"]:
                 return function()
@@ -1329,7 +1385,8 @@ class MainMenu:
 
             elif not context:
                 if cmd in ["entry", "set"]:
-                    # Explicitly check for empty list and treat it as no additional arguments
+                    # Explicitly check for empty list and treat it as no
+                    # additional arguments
 
                     if child_command == []:
                         return function()
@@ -1354,14 +1411,16 @@ class MainMenu:
             elif context:
                 cancel = self.navigate_away(child_command)
                 if cancel:
-                    # If navigation away is confirmed, print a success message and process the new command
+                    # If navigation away is confirmed, print a success message
+                    # and process the new command
 
                     print(SUCCESS("\nLet's continue with a new command!"))
                     if cmd in ["entry", "set"]:
                         return function(child_command) if child_command else function()
                 return cancel
         else:
-            # Return False if the command is not found in the command dictionary
+            # Return False if the command is not found in the command
+            # dictionary
 
             return False
 
@@ -1536,7 +1595,8 @@ class Entry:
 
         Help(self.cmd).help_specifics()
 
-        # Check if any string is None after validating input against formats/keys
+        # Check if any string is None after validating input against
+        # formats/keys
 
         key_none, self.data_settings = self.key_validator()
 
@@ -1555,7 +1615,8 @@ class Entry:
                 self.input = []
             else:
                 break
-            # Refresh Check if any string is None after validating input against formats/keys
+            # Refresh Check if any string is None after validating input
+            # against formats/keys
 
             key_none, self.data_settings = self.key_validator()
         self.confirm_data()
@@ -1591,7 +1652,8 @@ class Entry:
                     for k in self.data_settings:
                         if new_data_details[k][1] is not None:
 
-                            # Ensure only key:value formatted data can update non-None values
+                            # Ensure only key:value formatted data can update
+                            # non-None values
 
                             if self.data_settings[k][1] is not None:
                                 if ":" not in new_data_details[k][1]:
@@ -1826,7 +1888,8 @@ class Help:
         print("- You can force data to be validated against a specific subcommand")
         print(dim("  Example: 'short ./entry action:open' or 'entry type:short open'"))
 
-        # Highlight the requirement for declaring data types for certain entries
+        # Highlight the requirement for declaring data types for certain
+        # entries
 
         print(
             "- Some data entries like 'asset:' in './entry' MUST be declared with it's data type"
@@ -1876,8 +1939,8 @@ class Help:
         by entering 'back' or 'cancel'. If additional commands are entered, it validates them and potentially
         re-invokes the help with a new context or performs the requested action.
         """
-        while True:
-            if self.context is None:
+        if self.context is None:
+            while True:
                 print(TITLE("Help Information:"))
                 print("  - Type 'entry' to enter a trade")
                 print("  - Type 'check' to view stats")
@@ -1887,26 +1950,31 @@ class Help:
                 print("  - Type 'cancel' to cancel current job")
                 print("  - Type 'exit' to quit the program")
                 print(
-                    "\nCommands described above can be ran from anywhere in the program."
+                    "\nCommands described above can be ran from"
+                    "anywhere in the program."
                 )
                 return False
-            else:
-                print(TITLE(f"Help for '{self.context}':"))
 
-                if self.context not in ("check", "exit"):
-                    self.help_specifics()
+        if self.context not in ("check", "exit"):
+            print(TITLE(f"Help for '{self.context}':"))
+            self.help_specifics()
+
+            while True:
                 print("\n-  Type 'back' or 'cancel' to return to where you were")
                 print("-  Type 'help' again to see general help")
-
                 cmd = PATH(f"help {self.context}")
                 input_validate = InputValidation(cmd)
 
-                if cmd == "back" or cmd == "cancel":
-                    break
-                elif input_validate.multi_menu_call(silent=True):
-                    input_validate.multi_menu_call()
+                if input_validate.multi_menu_call(silent=True):
+                    if "back" in cmd or "cancel" in cmd:
+                        return False
+                    else:
+                        if input_validate.multi_menu_call(silent=True):
+                            input_validate.multi_menu_call()
+                        else:
+                            continue
                 else:
-                    continue
+                    print("That is not a valid command, please try again")
 
 
 class Set:
@@ -1919,7 +1987,7 @@ class Check:
         print("placeholder")
 
 
-## Process execution
+# Process execution
 
 
 class Calculation:
@@ -1932,18 +2000,22 @@ class Calculation:
 
 class TradingBookSystem:
     """
-    This class encapsulates the main loop of the application, providing a command line interface
-    to access various functionalities of the system. It continuously prompts the user for input
-    and processes commands until the program is exited.
+    This class encapsulates the main loop of the application,
+    providing a command line interface to access various
+    functionalities of the system. It continuously prompts
+    the user for input and processes commands until the
+    program is exited.
 
     Methods:
-        run(): Executes the main loop, processing user commands indefinitely until an exit command
-               is issued or the program is terminated.
+        run(): Executes the main loop, processing user commands
+                indefinitely until an exit command is
+                issued or the program is terminated.
     """
 
     def __init__(self):
         """
-        Initializes the TradingBookSystem class, setting up the main menu and help tips.
+        Initializes the TradingBookSystem class, setting up the
+        main menu and help tips.
         """
         self.menu = MainMenu()
         self.greeting = "\n\n\nWelcome to Trading Book System!"
@@ -1951,10 +2023,13 @@ class TradingBookSystem:
 
     def run(self):
         """
-        Executes the main loop of the application, continuously prompting the user for input
-        and processing commands until the program is exited. This loop is the primary interaction
-        point for users, providing a command line interface to access various functionalities
-        of the system.
+        Executes the main loop of the application, continuously
+        prompting the user for input and processing commands
+        until the program is exited.
+
+        This loop is the primary interaction point for users,
+        providing a command line interface to access various
+        functionalities of the system.
         """
         # Greeting and instructions
 
