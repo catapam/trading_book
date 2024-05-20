@@ -75,7 +75,7 @@ class DataBaseActions:
                 " worksheet {worksheet}: {e}"
             )
 
-    def write(self, worksheet, data):
+    def append(self, worksheet, data):
         """
         Appends a new row of data to the specified worksheet.
 
@@ -93,6 +93,9 @@ class DataBaseActions:
                 f"An unexpected error occurred while writing to "
                 "the worksheet {worksheet}: {e}"
             )
+
+    def rewrite_target_row(self, worksheet, data, row):
+        print("close/update database write")
 
 
 # Styling
@@ -174,7 +177,7 @@ ERROR = styles.apply_style("error")
 DB = DataBaseActions()
 
 
-# General usage functions
+# General usage functions and atributes
 
 
 def get_input(prompt):
@@ -401,6 +404,80 @@ def PATH(cmd=None, data_settings=None, key=None):
         else:
             prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
     return prompt
+
+
+class Table:
+    """
+    Print a table of data.
+
+    Args:
+        table (list of list): The table to print.
+        headers (list): The list of header titles.
+
+    This method calculates the maximum width for each column based
+    on both headers and content. It prints the headers with bold
+    styling, followed by a separator line, and then prints each row
+    of data in the table.
+    """
+    def __init__(self, table, headers):
+        self.table = table
+        self.headers = headers
+        self.col_widths = self.calculate_width()
+
+    def calculate_width(self):
+        # Calculate the maximum width for each column
+        # based on both headers and content
+        col_width = [max(
+            len(str(item)) for item in col
+            ) for col in zip(*self.table)
+            ]
+
+        return col_width
+
+    def formatted_header(self):
+        # Create the list of formatted headers
+        formatted_headers = [
+            f"{str(header).ljust(self.col_widths[i])}"
+            for i, header in enumerate(self.headers)
+        ]
+
+        # Join the formatted headers with ' | '
+        header_line = " | ".join(formatted_headers)
+
+        # Make the header line bold
+        bold_header_line = bold(header_line)
+
+        return bold_header_line
+
+    def formatted_rows(self):
+        # Print the data rows
+        for row in self.table[1:]:  # Skip the original headers in the table
+            row_formatted = (" | ".join(
+                f"{str(item).ljust(self.col_widths[i])}"
+                for i, item in enumerate(row)
+                )
+                             )
+
+        return row_formatted
+
+    def header_separator(self):
+        header_separator = "-+-".join(
+            '-' * self.col_widths[i] for i in range(
+                len(self.col_widths)
+                )
+            )
+
+        return header_separator
+
+    def print_table(self):
+        # Print the bold header line
+        print(self.formatted_header())
+
+        # Print a separator line
+        print(self.header_separator())
+
+        # Print rows
+        print(self.formatted_rows())
 
 
 # Validations
@@ -1718,7 +1795,8 @@ class MainMenu:
         """
         Check all trades active and curent stats of the trading strategy
         """
-        print("Current Trading Stats:")
+        print(TITLE("Current open trades:\n"))
+        Check().list_open_orders()
 
     def exit_program(self):
         """
@@ -1828,8 +1906,9 @@ class Entry:
             "atr": ("#.####%", None),
         }
         self.cmd = "entry"
+        self.bulk_mode_status = False
 
-    def key_validator(self, bulk_mode=False):
+    def key_validator(self):
         """
         Validate the keys in data_settings, checking for None values.
 
@@ -1866,9 +1945,9 @@ class Entry:
                 key_none.append(key)
             if value in ["bulk", "action:bulk"]:
                 self.bulk_mode()
-                bulk_mode = True
+                self.bulk_mode_status = True
                 key_none = []
-        return key_none, self.data_settings, bulk_mode
+        return key_none, self.data_settings
 
     def entry_loop(self, silent=False):
         """
@@ -1892,9 +1971,9 @@ class Entry:
 
         # Check if any string is None after validating input against
         # formats/keys
-        key_none, self.data_settings, bulk_mode = self.key_validator()
+        key_none, self.data_settings = self.key_validator()
 
-        if not bulk_mode:
+        if not self.bulk_mode_status:
             while True:
                 if not key_none:
                     break
@@ -1913,14 +1992,15 @@ class Entry:
 
                 # Refresh Check if any string is None after validating input
                 # against formats/keys
-                key_none, self.data_settings, _ = self.key_validator()
+                key_none, self.data_settings = self.key_validator()
 
         if not key_none:
             if silent:
                 self.confirm_data(silent=silent)
             else:
-                self.confirm_data()
-                # Calculation.start()
+                if self.confirm_data():
+                    Check().list_open_orders(silent=True)
+                    # Calculation.start()
 
     def input_request(self, key_none):
         """
@@ -1945,10 +2025,17 @@ class Entry:
             with the new values.
         """
         while key_none:
+            if self.bulk_mode_status:
+                break
+
             key = key_none[0]
             prompt = PATH(self.cmd, self.data_settings, key)
             input_validate = InputValidation(prompt, context=self.cmd)
             format_validator = DataFormatValidation(self.data_settings, prompt)
+
+            for _, (_, value) in self.data_settings.items():
+                if value in ["bulk", "action:bulk"]:
+                    self.bulk_mode_status = True
 
             if prompt:
                 if not input_validate.multi_menu_call(silent=True):
@@ -1970,6 +2057,7 @@ class Entry:
                     cancel = input_validate.multi_menu_call()
                     if cancel:
                         return False
+
             else:
                 print(ERROR("Hey, that is empty! Try again please."))
 
@@ -2128,7 +2216,34 @@ class Entry:
         current_time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
 
         # Format the data
-        formatted_data = [current_time, action, asset, type, price, stop, atr]
+        if action == "open":
+            formatted_data = [
+                current_time,
+                action,
+                asset,
+                type,
+                price,
+                stop,
+                atr,
+                current_time,
+                None,
+                stop,
+                atr
+            ]
+        else:
+            formatted_data = [
+                "time_old",
+                action,
+                "asset_old",
+                "type_old",
+                "price_old",
+                "stop_old",
+                "atr_old",
+                current_time,
+                price,
+                stop,
+                atr
+            ]
 
         return formatted_data
 
@@ -2142,8 +2257,12 @@ class Entry:
         The data is written to the worksheet identified by self.cmd.
         """
         formatted_data = self.data_base_prep()
+        row = None
 
-        DB.write(self.cmd, formatted_data)
+        if formatted_data[1] == "open":
+            DB.append(self.cmd, formatted_data)
+        else:
+            DB.rewrite_target_row(self.cmd, formatted_data, row)
 
 
 class Help:
@@ -2478,12 +2597,120 @@ class Help:
 
 class Set:
     def __init__(self):
-        print("placeholder")
+        self.cmd="set"
+        self.worksheet = DB.SHEET.worksheet(self.cmd)
+        self.data = self.worksheet.get_all_values()
 
 
 class Check:
+    """
+    A class to manage checking and listing open orders from a Google Sheets 
+    spreadsheet. This class interacts with a worksheet named 'entry' to 
+    retrieve and display information about open orders.
+
+    Methods:
+        __init__():
+            Initializes the Check class by accessing the 'entry' worksheet 
+            and retrieving all its data.
+        check_open_order(silent=False):
+            Checks if there are any open orders.
+        list_open_orders(silent=False):
+            Lists all open orders, calculates the duration for each open order,
+            and formats them into a table.
+    """
     def __init__(self):
-        print("placeholder")
+        """
+        Initializes the Check class by accessing the 'entry' worksheet
+        and retrieving all its data.
+        """
+        self.worksheet = DB.SHEET.worksheet("entry")
+        self.data = self.worksheet.get_all_values()
+
+    def check_open_order(self, silent=False):
+        """
+        Check if there are any open orders.
+
+        Args:
+            silent (bool): If True, suppresses output.
+
+        Returns:
+            bool: True if there is at least one open order, False otherwise.
+
+        This method iterates over the data to find any rows where the
+        'Action' column has the value 'open'. If such a row is found,
+        it returns True indicating there is an open order. If no open orders
+        are found, it returns False. If an exception occurs and silent is
+        False, it prints an error message.
+        """
+        try:
+            for row in self.data:
+                if row[1] == "open":
+                    return True
+            return False
+        except Exception as e:
+            if not silent:
+                print(ERROR(f"No open orders found"))
+            return False
+
+    def list_open_orders(self, silent=False):
+        """
+        List all open orders.
+
+        Args:
+            silent (bool): If True, suppresses output.
+
+        This method retrieves all data from the 'entry' worksheet, filters
+        for rows where the 'Action' column has the value 'open', and
+        calculates the duration for each open order. The open orders are
+        then formatted into a table with specified headers. If silent is
+        False, the table is printed. If silent is True, the table is returned.
+        """        
+        try:
+            global open_orders
+            open_orders = []
+            worksheet = DB.SHEET.worksheet("entry")
+            self.data = worksheet.get_all_values()
+
+            headers = [
+                "Timestamp", "Action", "Asset", "Type",
+                "Price", "Stop", "ATR", "Duration"
+            ]
+
+            for row in self.data[1:]:  # Skip header row
+                if row[1] == "open":
+                    time_open = row[0]
+                    action = row[1]
+                    asset = row[2]
+                    type_ = row[3]
+                    price_open = row[4]
+                    stop_open = row[5]
+                    atr_open = row[6]
+
+                    # Calculate duration in days
+                    time_open_dt = datetime.datetime.strptime(
+                        time_open, "%Y-%m-%d:%H:%M:%S"
+                        )
+                    duration = (datetime.datetime.now() - time_open_dt).days
+
+                    open_orders.append([
+                        time_open, action, asset, type_,
+                        price_open, stop_open, atr_open, duration
+                    ])
+
+            if open_orders:
+
+                table = [headers] + open_orders
+                if not silent:
+                    Table(table, headers).print_table()
+                else:
+                    return table
+            else:
+                if not silent:
+                    print(ERROR("No open orders found"))
+
+        except Exception as e:
+            if not silent:
+                print(ERROR(f"Error while listing open orders: {e}"))
 
 
 # Process execution
@@ -2534,6 +2761,7 @@ class TradingBookSystem:
         print(underscore(GREETING(self.greeting)))
         self.menu.menu_help()
         Help.pro_tips()
+        Check().list_open_orders(silent=True)
 
         global main_menu
         main_menu = self.main_menu
