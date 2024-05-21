@@ -90,11 +90,11 @@ class DataBaseActions:
             print(f"Failed to write to worksheet {worksheet}: {e}")
         except Exception as e:
             print(
-                f"An unexpected error occurred while writing to "
-                "the worksheet {worksheet}: {e}"
+                "An unexpected error occurred while writing to "
+                f"the worksheet {worksheet}: {e}"
             )
 
-    def rewrite_target_row(self, worksheet, data, row):
+    def rewrite_target_row(self, worksheet_name, data, row):
         """
         Close/update database write.
 
@@ -103,7 +103,29 @@ class DataBaseActions:
             data (list): The data to write.
             row (int): The row to update.
         """
-        print("close/update database write")
+        worksheet = DB.SHEET.worksheet(worksheet_name)
+
+        try:
+            # Read the existing row data
+            existing_row_data = worksheet.row_values(row)
+
+            # Ensure the row data has enough columns to append the new data
+            while len(existing_row_data) < len(data):
+                existing_row_data.append('')
+
+            # Update the existing row data with new data
+            for i, value in enumerate(data):
+                existing_row_data[i] = value
+
+            # Update the row in the worksheet
+            # Calculate the cell range (A to appropriate column letter)
+            cell_range = f'A{row}:{chr(65 + len(data) - 1)}{row}'
+            worksheet.update(range_name=cell_range, values=[existing_row_data])
+
+        except Exception as e:
+            print(f"Failed to update row {row} in "
+                  f"worksheet '{worksheet_name}': {e}"
+                  )
 
 
 # Styling
@@ -2276,6 +2298,16 @@ class Entry:
         # Get the current time
         current_time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
 
+        raw_data = [
+                current_time,
+                action,
+                asset,
+                type,
+                price,
+                stop,
+                atr,
+            ]
+
         # Format the data
         if action == "open":
             formatted_data = [
@@ -2293,20 +2325,15 @@ class Entry:
             ]
         else:
             formatted_data = [
-                "time_old",
-                action,
-                "asset_old",
-                "type_old",
-                "price_old",
-                "stop_old",
-                "atr_old",
                 current_time,
+                action,
+                asset,
                 price,
                 stop,
                 atr
             ]
 
-        return formatted_data
+        return formatted_data, raw_data
 
     def save_data(self):
         """
@@ -2317,10 +2344,10 @@ class Entry:
 
         The data is written to the worksheet identified by self.cmd.
         """
-        formatted_data = self.data_base_prep()
+        formatted_data, raw_data = self.data_base_prep()
 
         # Append data to raw_data worksheet
-        DB.append("raw_data", formatted_data)
+        DB.append("raw_data", raw_data)
 
         # Append data to the self.cmd worksheet with the specific structure
         self.save_to_cmd_worksheet(formatted_data)
@@ -2345,19 +2372,47 @@ class Entry:
             # Append as a new row for 'open' action
             worksheet.append_row(formatted_data[:7])
         else:
-            # Find the row where the 'open' action for the
-            # same asset was recorded
-            cell = worksheet.find(asset)
-            if cell:
-                row_number = cell.row
-                row_data = worksheet.row_values(row_number)
-                # Ensure the row data has enough columns to append the new data
-                while len(row_data) < 14:
-                    row_data.append('')
-                # Append the new data in the next 7 columns
-                for i in range(7, 14):
-                    row_data[i] = formatted_data[i % 7]
-                worksheet.update(f'A{row_number}:G{row_number}', [row_data])
+            # Find the row where the 'open' action for
+            # the same asset was recorded
+            cells = worksheet.findall(asset)
+            for cell in cells:
+                action_cell = worksheet.cell(cell.row, cell.col - 1)
+                if action_cell.value == "open":
+                    row_number = cell.row
+                    row_data = worksheet.row_values(row_number)
+                    if action == "close":
+                        composed_new_data = [
+                                row_data[0],  # First timestamp
+                                formatted_data[1],  # Action (e.g., 'close')
+                                row_data[2],  # Asset (e.g., 'btc')
+                                row_data[3],  # Type (e.g., 'short')
+                                row_data[4],  # Price
+                                row_data[5],  # Stop
+                                row_data[6],  # Initial ATR
+                                formatted_data[0],  # Second timestamp
+                                formatted_data[3],  # New price
+                                formatted_data[4],  # New stop
+                                formatted_data[5]  # New ATR
+                            ]
+                    else:
+                        composed_new_data = [
+                                row_data[0],  # First timestamp
+                                row_data[1],  # Action (e.g., 'update')
+                                row_data[2],  # Asset (e.g., 'btc')
+                                row_data[3],  # Type (e.g., 'short')
+                                row_data[4],  # Price
+                                row_data[5],  # Stop
+                                row_data[6],  # Initial ATR
+                                formatted_data[0],  # Second timestamp
+                                None,  # New price
+                                formatted_data[4],  # New stop
+                                formatted_data[5]  # New ATR
+                            ]
+
+                    DB.rewrite_target_row(
+                        self.cmd, composed_new_data, row_number
+                        )
+                    break
 
     def validate_asset_name(self, asset_name, action):
         """
@@ -2369,18 +2424,24 @@ class Entry:
         If the action is 'close' or 'update', ensure the
         asset name is in the list of open orders.
         """
-        open_assets = [row[2] for row in Check().list_open_orders(silent=True)]
+        if Check().list_open_orders(silent=True):
+            open_assets = [
+                row[2] for row in Check().list_open_orders(silent=True)
+                ]
 
-        if action == "open" and asset_name in open_assets:
-            raise ValueError(f"\nAsset '{asset_name}' is already in the "
-                             "list of open orders. You cannot have multiple "
-                             "trades open for same asset."
-                             )
-        elif action in ["close", "update"] and asset_name not in open_assets:
-            raise ValueError(f"\nAsset '{asset_name}' is not in the list "
-                             f"of open orders. You cannot {action} if a "
-                             "trade is not opened yet."
-                             )
+            if action == "open" and asset_name in open_assets:
+                raise ValueError(f"\nAsset '{asset_name}' is already in the "
+                                 "list of open orders. You cannot have "
+                                 "multiple trades open for same asset."
+                                 )
+
+            elif action in ["close", "update"]:
+                if asset_name not in open_assets:
+                    raise ValueError(f"\nAsset '{asset_name}' is not in "
+                                     "the list of open orders. You "
+                                     f"cannot {action} if a trade "
+                                     "is not opened yet."
+                                     )
 
     def validate_asset_for_action(self, data):
         """
