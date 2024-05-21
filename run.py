@@ -1783,7 +1783,7 @@ class MainMenu:
             # or context
 
             if cmd in ["exit", "check"]:
-                return function()
+                return function(child_command)
             # Handle the 'help' command with optional child_command or context
 
             elif cmd == "help":
@@ -1859,13 +1859,13 @@ class MainMenu:
         """
         Set(child_command).set_loop()
 
-    def menu_check(self):
+    def menu_check(self, child_command=None):
         """
         Check all trades active and curent stats of the trading strategy
         """
         Check().list_open_orders()
 
-    def exit_program(self):
+    def exit_program(self,leave=None):
         """
         Executes the process to safely exit the program, ensuring that the
         user is made aware of any unsaved data that could be lost upon exiting.
@@ -1892,9 +1892,12 @@ class MainMenu:
             program if confirmed.
         """
         print(ERROR("\nAll non-saved data will be lost"))
-        leave = get_input(
-            italic(red("Would you like to quit the program anyways? (y/n)\n"))
-        )
+
+        if not leave:
+            leave = get_input(
+                italic(red("Would you like to quit the program anyways? (y/n)\n"))
+            )
+            
         confirmation = yes_or_no(leave)
 
         if confirmation is True:
@@ -2052,7 +2055,6 @@ class Entry:
                 input_request = self.input_request(key_none)
 
                 if input_request:
-
                     # Merge new data with existing data settings
                     new_data_settings, _ = input_request
                     for k, v in new_data_settings.items():
@@ -2796,36 +2798,52 @@ class Help:
         and potentially re-invokes the help with a new context or
         performs the requested action.
         """
-        if self.context is None:
-            while True:
-                print(TITLE("Help Information:"))
-                print("  - Type 'entry' to enter a trade")
-                print("  - Type 'check' to view stats")
-                print("  - Type 'set' to open settings")
-                print("  - Type 'help' to get help")
-                print("  - Type 'back' to return to previous location")
-                print("  - Type 'cancel' to cancel current job")
-                print("  - Type 'exit' to quit the program")
-                print(
-                    "\nCommands described above can be ran from"
-                    "anywhere in the program."
-                )
-                return False
-
-        if self.context not in ("check", "exit"):
-            print(TITLE(f"Help for '{self.context}':"))
-            self.help_specifics()
-
+        if not self.context:
+            print(TITLE("Help Information:"))
+            print("  - Type 'entry' to enter a trade")
+            print("  - Type 'check' to view stats")
+            print("  - Type 'set' to open settings")
+            print("  - Type 'help' to get help")
+            print("  - Type 'back' to return to previous location")
+            print("  - Type 'cancel' to cancel current job")
+            print("  - Type 'exit' to quit the program")
+            print(
+                "\nCommands described above can be ran from"
+                "anywhere in the program."
+            )
         else:
-            print(TITLE(f"Help for '{self.context}':"))
-            if self.context == "check":
-                print("\n  - Command 'check' will show all open orders")
-            if self.context == "exit":
-                print(
-                    "\n  - Command 'exit' will safely close"
-                    " the program after confirmation"
-                    )
+            if self.context in MainMenu().command.keys():
+                if self.context not in ("check", "exit", "cancel", "back"):
+                    print(TITLE(f"Help for '{self.context}':"))
+                    self.help_specifics()
 
+                else:
+                    print(TITLE(f"Help for '{self.context}':"))
+                    if self.context == "check":
+                        print(
+                            "\n  - Command 'check' will show all open orders"
+                            )
+                    if self.context == "exit":
+                        print(
+                            "\n  - Command 'exit' will safely close"
+                            " the program after confirmation"
+                            )
+                    if self.context == "cancel":
+                        print(
+                            "\n  - Command 'cancel' will safely cancel"
+                            " the current job"
+                            )
+                    if self.context == "back":
+                        print(
+                            "\n  - Command 'back' will safely go back"
+                            " to main menu"
+                            )
+            else:
+                if self.context:
+                    print(ERROR(f"\nThe subcommand '{self.context}' "
+                                "is not valid for 'help'.\n"
+                                "Please try again."))
+                
 
 class Set:
     """
