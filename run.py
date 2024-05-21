@@ -59,7 +59,8 @@ class DataBaseActions:
             worksheet (str): The name of the worksheet to read from.
 
         Returns:
-            list: The last row of data from the worksheet.
+            list: The last row of data from the worksheet, or
+                None if an error occurs.
         """
         try:
             worksheet = self.SHEET.worksheet(worksheet)
@@ -69,11 +70,13 @@ class DataBaseActions:
             return data_row
         except APIError as e:
             print(f"Failed to read from worksheet {worksheet}: {e}")
+            return None
         except Exception as e:
             print(
                 f"An unexpected error occurred while reading the"
-                " worksheet {worksheet}: {e}"
+                f" worksheet {worksheet}: {e}"
             )
+            return None
 
     def append(self, worksheet, data):
         """
@@ -2049,8 +2052,8 @@ class Entry:
                 input_request = self.input_request(key_none)
 
                 if input_request:
-                    # Merge new data with existing data settings
 
+                    # Merge new data with existing data settings
                     new_data_settings, _ = input_request
                     for k, v in new_data_settings.items():
                         if v[1] is not None:
@@ -2069,7 +2072,6 @@ class Entry:
             else:
                 if self.confirm_data():
                     Check().list_open_orders(silent=True)
-                    # Calculation.start()
 
     def input_request(self, key_none):
         """
@@ -2129,7 +2131,7 @@ class Entry:
                     # Call asset validation if the 'asset' key has been updated
                     asset_value = new_data_details['asset'][1]
                     if 'asset' in new_data_details and asset_value is not None:
-                        validate = self.validate_asset_for_action(
+                        validate = self.validate_for_action(
                             new_data_details
                             )
                         if not validate:
@@ -2370,7 +2372,21 @@ class Entry:
 
         if action == "open":
             # Append as a new row for 'open' action
-            worksheet.append_row(formatted_data[:7])
+            composed_new_data = [formatted_data[0],
+                                 formatted_data[1],
+                                 formatted_data[2],
+                                 formatted_data[3],
+                                 formatted_data[4],
+                                 formatted_data[5],
+                                 formatted_data[6],
+                                 formatted_data[7],
+                                 None,
+                                 None,
+                                 formatted_data[6],
+                                 formatted_data[7]
+                                 ]
+            worksheet.append_row(composed_new_data)
+
         else:
             # Find the row where the 'open' action for
             # the same asset was recorded
@@ -2443,7 +2459,7 @@ class Entry:
                                      "is not opened yet."
                                      )
 
-    def validate_asset_for_action(self, data):
+    def validate_for_action(self, data):
         """
         Validate the asset name based on the action.
 
@@ -2872,12 +2888,26 @@ class Set:
                         if new_data_details[k][1] is not None:
                             # Ensure only key:value formatted data can update
                             # non-None values
+                            if ":" not in new_data_details[k][1]:
+                                continue
+                            else:
+                                self.data_settings[k] = new_data_details[k]
 
-                            if self.data_settings[k][1] is not None:
-                                if ":" not in new_data_details[k][1]:
-                                    continue
-                                else:
-                                    self.data_settings[k] = new_data_details[k]
+                                position_num, drawdown, total_risk, amount = (
+                                    self.data_settings[k][1].split(':')[1]
+                                    for k in self.data_settings
+                                    )
+
+                                composed_new_data = [
+                                    position_num,
+                                    drawdown,
+                                    total_risk,
+                                    amount
+                                    ]
+
+                                DB.rewrite_target_row(
+                                    self.cmd, composed_new_data, 2
+                                    )
                 else:
                     cancel = input_validate.multi_menu_call()
                     if cancel:
@@ -2923,6 +2953,9 @@ class Set:
             print(
                 "- Settings can only be changed by using the Edit workflow, "
                 "with format option:value."
+                "- This menu optioncurrently doesn't have any effects over "
+                "the it's in place for future expansions where global "
+                "settings might be necessary"
                 )
             print(dim("   Example: position_num:15"))
             print(green("\nCurrent settings:"))
@@ -3002,8 +3035,8 @@ class Check:
             self.data = worksheet.get_all_values()
 
             headers = [
-                "Timestamp", "Action", "Asset", "Type",
-                "Price", "Stop", "ATR", "Duration"
+                "Timestamp (UTC)", "Action", "Asset", "Type",
+                "Price", "Stop", "ATR (%/100)", "Duration (D)"
             ]
 
             for row in self.data[1:]:  # Skip header row
@@ -3013,8 +3046,8 @@ class Check:
                     asset = row[2]
                     type_ = row[3]
                     price_open = row[4]
-                    stop_open = row[5]
-                    atr_open = row[6]
+                    stop_open = row[9]
+                    atr_open = row[10]
 
                     # Calculate duration in days
                     time_open_dt = datetime.datetime.strptime(
