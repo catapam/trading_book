@@ -95,6 +95,14 @@ class DataBaseActions:
             )
 
     def rewrite_target_row(self, worksheet, data, row):
+        """
+        Close/update database write.
+
+        Args:
+            worksheet (str): The name of the worksheet.
+            data (list): The data to write.
+            row (int): The row to update.
+        """
         print("close/update database write")
 
 
@@ -150,6 +158,16 @@ class StyleOutput:
 
     @staticmethod
     def path_style(cmd=None, args=None):
+        """
+        Returns the styled command path.
+
+        Args:
+            cmd (str, optional): The command to be styled.
+            args (list, optional): Additional arguments for the command.
+
+        Returns:
+            str: The styled command path.
+        """
         if cmd is None:
             return gray(f"\n./")
         elif args is None:
@@ -377,32 +395,40 @@ def PATH(cmd=None, data_settings=None, key=None):
         prompt = get_input("Enter command: \n")
     else:
         # Look up the format for the specified key in the data_settings
+        if key:
+            fmt, _ = data_settings[key]
 
-        fmt, _ = data_settings[key]
+            # Check if the format is "any"
 
-        # Check if the format is "any"
+            if fmt == "any":
+                # Prompt the user to enter any characters except spaces or menu
+                # calls
 
-        if fmt == "any":
-            # Prompt the user to enter any characters except spaces or menu
-            # calls
+                prompt = get_input(
+                    f"Enter trade {key} (any characteres, but space or "
+                    "menu calls) or 'help': \n"
+                )
 
-            prompt = get_input(
-                f"Enter trade {key} (any characteres, but space or "
-                "menu calls) or 'help': \n"
-            )
+                # If the input does not contain ":",
+                # prepend the key to the input
 
-            # If the input does not contain ":", prepend the key to the input
+                is_menu = InputValidation(prompt).multi_menu_call(silent=True)
 
-            is_menu = InputValidation(prompt).multi_menu_call(silent=True)
+                if not is_menu:
+                    if ":" not in prompt:
+                        # Prompt the user to enter input based on the specified
+                        # format
 
-            if not is_menu:
-                if ":" not in prompt:
-                    # Prompt the user to enter input based on the specified
-                    # format
+                        prompt[0] = f"{key}:{prompt[0]}"
 
-                    prompt[0] = f"{key}:{prompt[0]}"
+            else:
+                prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
         else:
-            prompt = get_input(f"Enter trade {key} ({fmt}) or 'help': \n")
+            prompt = get_input(
+                f"Enter setting parameter update using "
+                "the edit option, learn more with 'help': \n"
+                )
+
     return prompt
 
 
@@ -434,11 +460,25 @@ class Table:
 
         return col_width
 
+    def format_center(self, text, width):
+        """
+        Center-align the text within a given width.
+
+        Args:
+            text (str): The text to align.
+            width (int): The width of the column.
+
+        Returns:
+            str: The centered text.
+        """
+        return text.center(width)
+
     def formatted_header(self):
         # Create the list of formatted headers
         formatted_headers = [
-            f"{str(header).ljust(self.col_widths[i])}"
+            self.format_center(str(header), self.col_widths[i])
             for i, header in enumerate(self.headers)
+            if i < len(self.col_widths)
         ]
 
         # Join the formatted headers with ' | '
@@ -450,15 +490,20 @@ class Table:
         return bold_header_line
 
     def formatted_rows(self):
-        # Print the data rows
-        for row in self.table[1:]:  # Skip the original headers in the table
-            row_formatted = (" | ".join(
-                f"{str(item).ljust(self.col_widths[i])}"
-                for i, item in enumerate(row)
-                )
-                             )
+        # Create a list to hold all formatted rows
+        formatted_rows = []
 
-        return row_formatted
+        # Format the data rows
+        for row in self.table[1:]:  # Skip the original headers in the table
+            row_formatted = " | ".join(
+                self.format_center(str(item), self.col_widths[i])
+                for i, item in enumerate(row)
+            )
+
+            # Add the formatted row to the list
+            formatted_rows.append(row_formatted)
+
+        return formatted_rows
 
     def header_separator(self):
         header_separator = "-+-".join(
@@ -477,7 +522,8 @@ class Table:
         print(self.header_separator())
 
         # Print rows
-        print(self.formatted_rows())
+        for row in self.formatted_rows():
+            print(row)
 
 
 # Validations
@@ -1780,22 +1826,18 @@ class MainMenu:
         """
         Initializes an Entry instance and starts the entry loop.
         """
-        entry_instance = Entry(child_command)
-        entry_instance.entry_loop()
+        Entry(child_command).entry_loop()
 
     def menu_set(self, child_command=None):
         """
-        Logic for managing settings
+        Managing settings call
         """
-        # This going to be a class, just adding place holder
-
-        print("Settings updated successfully.")
+        Set(child_command).set_loop()
 
     def menu_check(self):
         """
         Check all trades active and curent stats of the trading strategy
         """
-        print(TITLE("Current open trades:\n"))
         Check().list_open_orders()
 
     def exit_program(self):
@@ -1883,7 +1925,6 @@ class Entry:
     """
     Class to handle trade entries.
     """
-
     def __init__(self, input=None):
         """
         Initialize the Entry class.
@@ -2394,6 +2435,9 @@ class Help:
             "request new input as needed"
             )
 
+        if self.context == "set":
+            Set().get_current_settings()
+
     def pro_tips():
         """
         Displays professional tips for using the command line
@@ -2575,42 +2619,144 @@ class Help:
             print(TITLE(f"Help for '{self.context}':"))
             self.help_specifics()
 
-            while True:
+        else:
+            print(TITLE(f"Help for '{self.context}':"))
+            if self.context == "check":
+                print("\n  - Command 'check' will show all open orders")
+            if self.context == "exit":
                 print(
-                    "\n-  Type 'back' or 'cancel' to return to where you were"
+                    "\n  - Command 'exit' will safely close"
+                    " the program after confirmation"
                     )
-                print("-  Type 'help' again to see general help")
-                cmd = PATH(f"help {self.context}")
-                input_validate = InputValidation(cmd)
-
-                if input_validate.multi_menu_call(silent=True):
-                    if "back" in cmd or "cancel" in cmd:
-                        return False
-                    else:
-                        if input_validate.multi_menu_call(silent=True):
-                            input_validate.multi_menu_call()
-                        else:
-                            continue
-                else:
-                    print("That is not a valid command, please try again")
 
 
 class Set:
-    def __init__(self):
-        self.cmd="set"
+    """
+    Manages user settings for the trading book system. This class
+    allows users to update and retrieve settings stored in a Google
+    Sheets worksheet.
+
+    Attributes:
+        cmd (str): The name of the command ('set').
+        worksheet (gspread.Worksheet): The worksheet object
+                                        for the 'set' sheet.
+        data (list): All values from the worksheet.
+        input (list): Initial input data.
+        data_settings (dict): A dictionary of settings with
+                            their formats and current values.
+    """
+    def __init__(self, input=None):
+        """
+        Initialize the Set class.
+
+        Args:
+            input (list, optional): Initial input data. Defaults to None.
+
+        This method sets up the initial state of the Set object,
+        including the worksheet data and data settings.
+        """
+        self.cmd = "set"
         self.worksheet = DB.SHEET.worksheet(self.cmd)
         self.data = self.worksheet.get_all_values()
+        self.input = input
+        self.data_settings = {
+            "position_num": ("#", None),
+            "drawdown": ("#.##%", None),
+            "total_risk": ("#.##%", None),
+            "amount": ("#.##", None)
+        }
+
+    def set_loop(self):
+        """
+        Main loop to process user settings.
+
+        This method starts the process of updating user settings.
+        It continuously prompts the user to provide the necessary
+        information and updates the settings accordingly.
+        """
+        print(TITLE("Settings:"))
+        Help(self.cmd).help_specifics()
+        self.data_settings = self.get_current_settings(silent=True)
+
+        while True:
+            prompt = PATH(self.cmd, self.data_settings)
+            input_validate = InputValidation(prompt, context=self.cmd)
+            format_validator = DataFormatValidation(self.data_settings, prompt)
+
+            if prompt:
+                if not input_validate.multi_menu_call(silent=True):
+                    new_data_details, _, _ = format_validator.get_results()
+
+                    for k in self.data_settings:
+                        if new_data_details[k][1] is not None:
+                            # Ensure only key:value formatted data can update
+                            # non-None values
+
+                            if self.data_settings[k][1] is not None:
+                                if ":" not in new_data_details[k][1]:
+                                    continue
+                                else:
+                                    self.data_settings[k] = new_data_details[k]
+                else:
+                    cancel = input_validate.multi_menu_call()
+                    if cancel:
+                        return False
+
+            else:
+                print(ERROR(
+                    "Hey, that is empty! Type 'cancel' or"
+                    "'back' to go back to main menu."
+                    )
+                      )
+
+    def get_current_settings(self, silent=False):
+        """
+        Get current settings from the worksheet.
+
+        Args:
+            silent (bool): If True, return the settings without printing.
+
+        Returns:
+            list or None: If silent is True, return the settings
+                        list. Otherwise, None.
+        """
+        headers = ["Max number of open positions", "Max drawdown (%/100)",
+                   "Max total risk (%/100)", "Amount"]
+
+        current_settings = self.data[1]  # Get the second line (data)
+
+        # Update only the value parameter of self.data_settings
+        keys = list(self.data_settings.keys())
+        for i in range(len(keys)):
+            key = keys[i]
+            self.data_settings[key] = (
+                self.data_settings[key][0],
+                f"{key}:{current_settings[i]}"
+                )
+
+        table = [headers, current_settings]
+
+        if silent:
+            return self.data_settings
+        else:
+            print(
+                "- Settings can only be changed by using the Edit workflow, "
+                "with format option:value."
+                )
+            print(dim("   Example: position_num:15"))
+            print(green("\nCurrent settings:"))
+            Table(table, headers).print_table()
 
 
 class Check:
     """
-    A class to manage checking and listing open orders from a Google Sheets 
-    spreadsheet. This class interacts with a worksheet named 'entry' to 
+    A class to manage checking and listing open orders from a Google Sheets
+    spreadsheet. This class interacts with a worksheet named 'entry' to
     retrieve and display information about open orders.
 
     Methods:
         __init__():
-            Initializes the Check class by accessing the 'entry' worksheet 
+            Initializes the Check class by accessing the 'entry' worksheet
             and retrieving all its data.
         check_open_order(silent=False):
             Checks if there are any open orders.
@@ -2664,7 +2810,10 @@ class Check:
         calculates the duration for each open order. The open orders are
         then formatted into a table with specified headers. If silent is
         False, the table is printed. If silent is True, the table is returned.
-        """        
+        """
+        if not silent:
+            print(TITLE("Current open trades:\n"))
+
         try:
             global open_orders
             open_orders = []
