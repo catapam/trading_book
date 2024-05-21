@@ -1988,6 +1988,11 @@ class Entry:
                 self.bulk_mode()
                 self.bulk_mode_status = True
                 key_none = []
+
+        # Revalidate asset if action has changed
+        if self.input and "action" in self.input:
+            self.revalidate_asset()
+
         return key_none, self.data_settings
 
     def entry_loop(self, silent=False):
@@ -2018,6 +2023,7 @@ class Entry:
             while True:
                 if not key_none:
                     break
+
                 input_request = self.input_request(key_none)
 
                 if input_request:
@@ -2093,6 +2099,20 @@ class Entry:
                                     continue
                                 else:
                                     self.data_settings[k] = new_data_details[k]
+
+                    # Revalidate asset if action is updated
+                    if "action" in new_data_details:
+                        self.revalidate_asset()
+
+                    # Call asset validation if the 'asset' key has been updated
+                    asset_value = new_data_details['asset'][1]
+                    if 'asset' in new_data_details and asset_value is not None:
+                        validate = self.validate_asset_for_action(
+                            new_data_details
+                            )
+                        if not validate:
+                            continue
+
                     return new_data_details, prompt
                 else:
                     cancel = input_validate.multi_menu_call()
@@ -2298,12 +2318,112 @@ class Entry:
         The data is written to the worksheet identified by self.cmd.
         """
         formatted_data = self.data_base_prep()
-        row = None
 
-        if formatted_data[1] == "open":
-            DB.append(self.cmd, formatted_data)
+        # Append data to raw_data worksheet
+        DB.append("raw_data", formatted_data)
+
+        # Append data to the self.cmd worksheet with the specific structure
+        self.save_to_cmd_worksheet(formatted_data)
+
+    def save_to_cmd_worksheet(self, formatted_data):
+        """
+        Save data to the worksheet specified by self.cmd
+        with a different structure.
+
+        If the action is 'open', the data is appended as
+        a new row.
+
+        If the action is 'close' or 'update', the data
+        is appended to the same row as the previous
+        'open' action for the same asset,
+        in the next 7 columns.
+        """
+        worksheet = DB.SHEET.worksheet(self.cmd)
+        action, asset = formatted_data[1], formatted_data[2]
+
+        if action == "open":
+            # Append as a new row for 'open' action
+            worksheet.append_row(formatted_data[:7])
         else:
-            DB.rewrite_target_row(self.cmd, formatted_data, row)
+            # Find the row where the 'open' action for the
+            # same asset was recorded
+            cell = worksheet.find(asset)
+            if cell:
+                row_number = cell.row
+                row_data = worksheet.row_values(row_number)
+                # Ensure the row data has enough columns to append the new data
+                while len(row_data) < 14:
+                    row_data.append('')
+                # Append the new data in the next 7 columns
+                for i in range(7, 14):
+                    row_data[i] = formatted_data[i % 7]
+                worksheet.update(f'A{row_number}:G{row_number}', [row_data])
+
+    def validate_asset_name(self, asset_name, action):
+        """
+        Validate the asset name based on the action.
+
+        If the action is 'open', ensure the asset name is not
+        in the list of open orders.
+
+        If the action is 'close' or 'update', ensure the
+        asset name is in the list of open orders.
+        """
+        open_assets = [row[2] for row in Check().list_open_orders(silent=True)]
+
+        if action == "open" and asset_name in open_assets:
+            raise ValueError(f"\nAsset '{asset_name}' is already in the "
+                             "list of open orders. You cannot have multiple "
+                             "trades open for same asset."
+                             )
+        elif action in ["close", "update"] and asset_name not in open_assets:
+            raise ValueError(f"\nAsset '{asset_name}' is not in the list "
+                             f"of open orders. You cannot {action} if a "
+                             "trade is not opened yet."
+                             )
+
+    def validate_asset_for_action(self, data):
+        """
+        Validate the asset name based on the action.
+
+        If the action is 'open', ensure the asset name is
+        not in the list of open orders.
+
+        If the action is 'close' or 'update', ensure the
+        asset name is in the list of open orders.
+        """
+        if data["action"][1]:
+            action = data["action"][1].split(":")[1]
+        else:
+            action = self.data_settings["action"][1].split(":")[1]
+
+        asset_name = data["asset"][1].split(":")[1]
+
+        try:
+            self.validate_asset_name(asset_name, action)
+        except ValueError as e:
+            print(ERROR(str(e)))
+            Check().list_open_orders()
+            return False
+        return True
+
+    def revalidate_asset(self):
+        """
+        Revalidate the asset based on the current action. If the asset
+        cannot be validated, set its value to None.
+        """
+        action_value = self.data_settings["action"][1]
+        if action_value:
+            action = action_value.split(":")[1]
+            asset_value = self.data_settings["asset"][1]
+            if asset_value:
+                asset = asset_value.split(":")[1]
+                try:
+                    self.validate_asset_name(asset, action)
+                except ValueError as e:
+                    print(ERROR(str(e)))
+                    Check().list_open_orders()
+                    self.data_settings["asset"] = ("any", None)
 
 
 class Help:
