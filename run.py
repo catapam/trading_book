@@ -777,7 +777,7 @@ class InputValidation:
         print(
             ERROR(
                 f"If you want to execute '{words}', 'cancel' the current job "
-                "and start over again with one of the commands in '{words}'"
+                f"and start over again with one of the commands in '{words}'"
             )
         )
         print(
@@ -896,7 +896,8 @@ class InputValidation:
                 print(
                     ERROR(
                         "\nInvalid menu call, none of the inputs "
-                        "validate as menu"
+                        "validate as menu. Type 'help' to check "
+                        "valid menu options."
                     )
                 )
             return False
@@ -2257,6 +2258,7 @@ class Entry:
                     )
                 )
             else:
+                #Used for bulk mode report
                 print(SUCCESS(
                     f"Entry saved: {action} {asset} {type}"
                     f" {price} {stop} {atr}"
@@ -2266,11 +2268,12 @@ class Entry:
             if not silent:
                 print(
                     ERROR(
-                        "\nTrade failed:\nentry "
+                        "\nTrade cancelled:\nentry "
                         f"{action} {asset} {type} {price} {stop} {atr}"
                     )
                 )
             else:
+                #Used for bulk mode report
                 print(ERROR(
                     f"Entry failed: {action} {asset} {type}"
                     f" {price} {stop} {atr}"
@@ -2775,6 +2778,20 @@ class Help:
                 )
               )
 
+    def main_help(self):
+        print(TITLE("Help Information:"))
+        print("  - Type 'entry' to enter a trade")
+        print("  - Type 'check' to view stats")
+        print("  - Type 'set' to open settings")
+        print("  - Type 'help' to get help")
+        print("  - Type 'back' to return to previous location")
+        print("  - Type 'cancel' to cancel current job")
+        print("  - Type 'exit' to quit the program")
+        print(
+            "\nCommands described above can be ran from"
+            "anywhere in the program."
+        )
+
     def help_loop(self):
         """
         Displays the help menu with guidance on available commands and
@@ -2799,18 +2816,7 @@ class Help:
         performs the requested action.
         """
         if not self.context:
-            print(TITLE("Help Information:"))
-            print("  - Type 'entry' to enter a trade")
-            print("  - Type 'check' to view stats")
-            print("  - Type 'set' to open settings")
-            print("  - Type 'help' to get help")
-            print("  - Type 'back' to return to previous location")
-            print("  - Type 'cancel' to cancel current job")
-            print("  - Type 'exit' to quit the program")
-            print(
-                "\nCommands described above can be ran from"
-                "anywhere in the program."
-            )
+            self.main_help()
         else:
             if self.context in MainMenu().command.keys():
                 if self.context not in ("check", "exit", "cancel", "back"):
@@ -2841,8 +2847,10 @@ class Help:
             else:
                 if self.context:
                     print(ERROR(f"\nThe subcommand '{self.context}' "
-                                "is not valid for 'help'.\n"
-                                "Please try again."))
+                                "is not valid for 'help'."))
+                    self.context = None
+                    self.main_help()
+                    print(ERROR("\nPlease try again."))
                 
 
 class Set:

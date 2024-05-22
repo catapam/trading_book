@@ -199,12 +199,126 @@ Errors were identified early and addressed promptly, adhering to the daily work 
 
 ## Manual testing
 
-| **Feature** | **Action** | **Expected Result** | **Actual Result** |
-|-------------|------------|---------------------|-------------------|
+This is a command line project, all the manual testing was focused on checking valid commands, sucessful responses and error handling.
+
+### Main menu and multi string inputs
+
+| **Feature** | **CLI Input** | **Expected Result** | **Actual Result** |
+|-------------|---------------|---------------------|-------------------|
+| General | `""` | Similarly to known terminal flow, empty input simply ask a new input without showing any errors. This is intended for familiarity purposes |  Works as expected |
+| General | `"   "` | Similarly to known terminal flow, blank input simply ask a new input without showing any errors. This is intended for familiarity purposes |  Works as expected |
+| General | `"foobar"` | Invalid request error message and back to main input request |  Works as expected |
+| Help | ```help``` | Open general help options and back to main input request |  Works as expected |
+| Help | ```hepl``` | Invalid request error message and back to main input request | Works as expected |
+| Help | ```Help entry``` | Fix capital letter to 'help', open entry help options and back to main input request | Works as expected |
+| Help | ```help ./set``` | Takes help as priority request, open set help options (which shows current settings at the end) and back to main input request | Works as expected |
+| Help | ```help help``` | Open general help options and back to main input request | Works as expected |
+| Help | ```./help cancel``` | Help already takes priority over any menu requests, './' changes nothing on the behavior here, returns cancel help options and back to main input request | Works as expected |
+| Help | ```./help ./exit``` | Help takes priority and shows exit help options, going back to main input request afterwards | Works as expected |
+| Help | ```check help``` | Help takes priority and shows check help options, going back to main input request afterwards | Works as expected |
+| Help | ```back ./help``` | Help takes priority and shows back help options, going back to main input request afterwards | Works as expected |
+| Help | ```banana ./help``` | Error returns informing 'banana' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
+| Help | ```apple help``` | Error returns informing 'apple' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
+| Help | ```./apple help``` | Error returns informing 'apple' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
+| Help | ```help grape``` | Error returns informing 'grape' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
+| Help | ```help ./grape``` | Error returns informing 'grape' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
+| Help | ```./help entyr``` | Error returns informing 'entyr' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
+| Help | ```help ./entry set``` | Help takes priority over './entry' and 'set', './' forces entry through as secondary command, set is ignored, shows entry help options, going back to main input request afterwards | Works as expected |
+| Help | ```help entry ./ste``` | ./ste is invalidated, shows entry help options, going back to main input request afterwards | It crashes on line 751: AttributeError: 'str' object has no attribute 'append'|
+| Help | ```help entry ./check``` | Help takes priority over './check' and 'entry', './' forces check through as secondary command, entry is ignored, shows check help options, going back to main input request afterwards | Works as expected |
+| Check | ```help ./entry ./check``` | Help takes priority over './entry' and './check', './' forces entry through as secondary command, './check' is ignored, shows entry help options, going back to main input request afterwards | Check help options is shown instead of entry help |
+| Check | ```check``` | Open check options, showing a table with all open orders if there is any, or error if there is none and back to main input request | Works as expected |
+| Check | ```chekc``` | Invalid request error message and back to main input request | Works as expected |
+| Check | ```check ./entry``` | Entry takes priority over 'check' due to presence of forcing menu string './', shows entry options | Works as expected |
+| Check | ```check help``` | Help takes priority and shows check help options, going back to main input request afterwards | Works as expected |
+| Check | ```check banana``` | Error message is shown informing 'banana' is not a valid input, and plain check is run | 'banana' is ignored, and check function works ok, but no error message shown |
+| Check | ```apple check``` | Error message is shown informing 'apple' is not a valid input, and plain check is run | 'apple' is ignored, and check function works ok, but no error message shown |
+| Check | ```grape ./check``` | Error message is shown informing 'grape' is not a valid input, and plain check is run | 'grape' is ignored, and check function works ok, but no error message shown |
+| Check | ```check set entry``` | Invalid request error message, being first string 'check' is taken as priority and run it and back to main input request | Works as expected |
+| Check | ```check ./set entry``` | Invalid request error message, having './' string 'set' is taken as priority and run it and back to main input request | Works as expected |
+| Check | ```check set ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it and back to main input request | Works as expected |
+| Cancel | ```cancel``` | Request confirmation to cancel the current job, or inform there is nothing to cancel if no job is in progress | Works as expected |
+| Cancel | ```cancle``` | Invalid request error message and back to main input request | Works as expected |
+| Cancel | ```cancel ./entry``` | Entry takes priority over 'cancel' due to presence of './', starts entry options | Works as expected |
+| Cancel | ```cancel help``` | Help takes priority and shows cancel help options, going back to main input request afterwards | Works as expected |
+| Cancel | ```cancel banana``` | Error message is shown informing 'banana' is not a valid input, and plain cancel is run | 'banana' is being ignored, and cancel function works ok, but no error message shown |
+| Cancel | ```apple cancel``` | Error message is shown informing 'apple' is not a valid input, and plain cancel is run | 'apple' is being ignored, and cancel function works ok, but no error message shown |
+| Cancel | ```grape ./cancel``` | Error message is shown informing 'grape' is not a valid input, and plain cancel is run | 'grape' is being ignored, and cancel function works ok, but no error message shown |
+| Cancel | ```cancel set entry``` | Invalid request error message, being first string 'check' is taken as priority and run it and back to main input request | Works as expected |
+| Cancel | ```cancel ./set entry``` | Invalid request error message, having './' string 'set' is taken as priority and run it and back to main input request | Works as expected |
+| Cancel | ```cancel set ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it | Works as expected |
+| Cancel | ```cancel y``` | If a job is running, cancellation is self confirmed and proceeds without asking again | Works as expected |
+| Cancel | ```cancel n``` | If a job is running, cancellation is self rejected and main input request is prompted again | Works as expected |
+| Exit | ```exit``` | Exit the program after user confirmation | Works as expected |
+| Exit | ```exti``` | Invalid request error message and back to main input request | Works as expected |
+| Exit | ```exit ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it | Works as expected |
+| Exit | ```exit help``` | Help takes priority and shows exit help options, going back to main input request afterwards | Works as expected |
+| Exit | ```exit banana``` | 'banana' is invalidated showing error message, and exit is continued | 'banana' is being passed to exit showing the error message of invalid input on the confirmation request |
+| Exit | ```apple exit``` | 'apple' is invalidated showing error message, and exit is continued | 'apple' is being passed to exit showing the error message of invalid input on the confirmation request |
+| Exit | ```grape ./exit``` | 'grape' is invalidated showing error message, and exit is continued | 'grape' is being passed to exit showing the error message of invalid input on the confirmation request |
+| Exit | ```exit set entry``` | Invalid request error message, being first string 'exit' is taken as priority, run it and back to main input request | Works as expected |
+| Exit | ```exit ./set entry``` | Invalid request error message, having './' string 'set' is taken as priority and run it and back to main input request | Works as expected |
+| Exit | ```exit set ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it and back to main input request | Works as expected |
+| Exit | ```exit y``` | Exit is self confirmed and proceeds without asking again | Works as expected |
+| Exit | ```exit n``` | Exit is self rejected and main input request is prompted again | Works as expected |
+| Back | ```back``` | Go back to the previous menu if possible, or inform there is nowhere to go back to if already at the main menu | Works as expected |
+| Back | ```bakc``` | Invalid request error message and back to main input request | Works as expected |
+| Back | ```back ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it | Works as expected |
+| Back | ```back help``` | Help takes priority and shows back help options, going back to main input request afterwards | Works as expected |
+| Back | ```back banana``` | 'banana' is invalidated showing error message, and back is continued | 'banana' is ignored |
+| Back | ```apple back``` | 'apple' is invalidated showing error message, and back is continued | 'apple' is ignored |
+| Back | ```grape ./back``` | 'grape' is invalidated showing error message, and back is continued | 'grape' is ignored |
+| Back | ```back set entry``` | Invalid request error message, being first string 'back' is taken as priority, run it and back to main input request | Works as expected |
+| Back | ```back ./set entry``` | Invalid request error message, having './' string 'set' is taken as priority and run it and back to main input request | Works as expected |
+| Back | ```back set ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it and back to main input request | Works as expected |
+| Set | ```set``` | Open set options, allowing user to modify settings | Works as expected |
+| Set | ```ste``` | Invalid request error message and back to main input request | Works as expected |
+| Set | ```set ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it | Works as expected |
+| Set | ```set help``` | Help takes priority and shows set help options, going back to main input request afterwards | Works as expected |
+| Set | ```set banana``` | 'banana' is invalidated showing error message, and set is continued | 'banana' is ignored |
+| Set | ```apple set``` | 'apple' is invalidated showing error message, and set is continued | 'apple' is ignored |
+| Set | ```grape ./set``` | 'grape' is invalidated showing error message, and set is continued | 'grape' is ignored |
+| Set | ```set back entry``` | Invalid request error message, being first string 'set' is taken as priority, run it and back to main input request | Works as expected |
+| Set | ```entry ./set cancel``` | Invalid request error message, having './' string 'set' is taken as priority and run it | Works as expected |
+| Set | ```entry exit ./set``` | Invalid request error message, having './' string 'set' is taken as priority and run it | Works as expected |
+| Set | ```set position_num:15 drawdown:30% total_risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set position_num:20 drawdown:30% total_risk:0.20 amount:1000.00``` | Update settings with the provided values and confirm the update, 'total_risk:0.20' returns invalid value | Values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set total_risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set 0,20``` | Invalid request error message for '0,20', starts function set without passing invalid string | No error message showing, values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set 20%``` | Invalid request error message for '20%', starts function set without passing invalid string | No error message showing, values not being passed to settings, or being rewritten by DB reading |
+| Entry | ```entry``` | Open entry options, allowing user to log a trade | Works as expected |
+| Entry | ```entyr``` | Invalid request error message and back to main input request | Works as expected |
+| Entry | ```set ./entry``` | Entry takes priority over './set', shows entry options, going back to main input request afterwards | Works as expected |
+| Entry | ```entry help``` | Help takes priority and shows entry help options, going back to main input request afterwards | Works as expected |
+| Entry | ```entry banana``` | Starts entry, showing the invalidated value 'banana' in an error message | Works as expected |
+| Entry | ```apple entry``` | Starts entry, showing the invalidated value 'apple' in an error message | Works as expected |
+| Entry | ```grape ./entry``` | Starts entry, showing the invalidated value 'grape' in an error message | Works as expected |
+| Entry | ```entry back entry``` | Invalid request error message, being first string 'entry' is taken as priority, run it and back to main input request | Works as expected |
+| Entry | ```back ./entry cancel``` | Invalid request error message, having './' string 'entry' is taken as priority and run it| Works as expected |
+| Entry | ```set exit ./entry``` | Invalid request error message, having './' string 'entry' is taken as priority and run it| Works as expected |
+| Entry | ```entry bulk``` | Initiate bulk mode for trade entries | Works as expected |
+| Entry | ```entry bulk [{"action":"open", "asset":"btc", "type":"long", "price":"15.00000000", "stop":"10.00000000", "atr":"0.0100"},{"action":"close", "asset":"btc", "type":"long", "price":"17.00000000", "stop":"13.00000000", "atr":"0.0110"}]``` | Although this is a valid JSON entry for bulk import, the string will always be invalidated at this point and requested inside the bulk menu options, avoiding potential wrong entries | Works as expected |
+| Entry | ```entry bulk short``` | Initiates entry in bulk mode, showing error for any other parameters | Because short is a valid entry for one of the input requests the value is not showing on errors but just being ignored |
+| Entry | ```entry bulk yada``` | Initiates entry in bulk mode, showing error for any other parameters | Works as expected |
+| Entry | ```entry open bulk``` | Initiates entry in bulk mode, showing error for any other parameters | Because open is a valid entry for one of the input requests the value is not showing on errors but just being ignored |
+| Entry | ```entry banana short asset:apple 1% 15 25 open``` | Invalid request error message for 'banana' reorder and validate the other paramaters and execute entry | Works as expected |
+| Entry | ```entry open asset:apple short 15.50 25 1%``` | Reorder and validate the paramaters and execute entry | Works as expected |
+| Entry | ```entry open apple short stop:15,50 25 0.01``` | Error Ivalidated data: ['apple', '0.01'], reorder and validate all the other paramenters, fixes 15,50 to 15.5 and execute entry function | Works as expected |
+| Entry | ```entry action: close``` | Invalid request error message for 'action:', space separator is used incorrectly, as close is auto validable the action is still set to close and entry function executed | Works as expected |
+| Entry | ```entry action:close asset:apple``` | Reorder and validate the paramaters and execute entry | Works as expected |
+| Entry | ```entry 0,20``` | Fix ',' to '.' and validate the number value to the price which is the first number format accepted | Works as expected |
+| Entry | ```entry 20%``` | Validate the % value to the atr which is the only % format accepted | Works as expected |
+
+### Set inner functions
+
+### Entry inner functions
+
 
 # Future optimizations
 
 Over the course of nearly 200 hours dedicated to this project, numerous objects and functions were created with reusability in mind. A significant portion of the code was designed to be reusable in other features or projects. However, some objects contain multiple methods and would benefit from being broken down into smaller, more manageable objects.
+
+The manual testing section above show some issues on input requests, those need to be dealt with yet. Documenting it here for future updates reference.
 
 Additionally, some functions currently perform multiple tasks. Due to time constraints, these functions had to be left as they are. This section of the README file has been included to highlight areas for future refactoring and improvement. Reworking these functions and objects will enhance code modularity, readability, and maintainability.
 
