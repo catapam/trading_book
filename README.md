@@ -309,10 +309,60 @@ This is a command line project, all the manual testing was focused on checking v
 | Entry | ```entry 0,20``` | Fix ',' to '.' and validate the number value to the price which is the first number format accepted | Works as expected |
 | Entry | ```entry 20%``` | Validate the % value to the atr which is the only % format accepted | Works as expected |
 
+
 ### Set inner functions
+
+Running commands from inside 'set' function.
+
+| **Feature** | **CLI Input** | **Expected Result** | **Actual Result** |
+|-------------|---------------|---------------------|-------------------|
+| General | "any input, except the next ones" | Invalid input error message, reprint the current settings and ask for new input | Works as expected |
+| Multiple menu call | e.g. ```check entry``` | Invalid input error, 'check' takes priority and gets executed | Error message is printing twice |
+| Multiple menu call | e.g. ```check ./entry``` | Invalid input error, 'entry' takes priority due to './' and gets executed | Error message is printing twice |
+| Main menu call | ```help``` | Prints 'set' help options | Works as expected |
+| Main menu call | ```help entry``` | Prints 'entry' help options | Works as expected |
+| Main menu call | ```help invalid``` | 'invalid' is invalidated and return error message, Prints main help options | Works as expected |
+| Main menu call | ```check``` | Open check options, showing a table with all open orders if there is any, or error if there is none and back to set input request | Works as expected |
+| Main menu call | ```check banana``` | Error message is shown informing 'banana' is not a valid input, and plain check is run | 'banana' is ignored, and check function works ok, but no error message shown |
+| Main menu call | ```exit``` | Alert that any non-saved data will be lost and ask confirmation before proceeding | Works as expected |
+| Main menu call | ```exit n``` | Null command, it should only re-print the current settings and request for new input | Error message alerting data non-saved will be lost is being printed |
+| Main menu call | ```exit x``` | Incorrect passed value to 'exit' function, error message and request for new confirmation on the exit command | Works as expected |
+| Main menu call | ```exit y``` | Forced exit, no request for confirmation, just alerts the possibility of losing non-saved data and proceed | Works as expected |
+| Main menu call | ```cancel``` | Alert that any non-saved data will be lost and ask confirmation before proceeding | Works as expected |
+| Main menu call | ```cancel n``` | Null command, it should only re-print the current settings and request for new input | Works as expected |
+| Main menu call | ```cancel x``` | Incorrect passed value to 'cancel' function, error message and request for new confirmation on the cancel command | Works as expected |
+| Main menu call | ```cancel y``` | Forced cancel, no request for confirmation, just alerts the possibility of losing non-saved data and proceed | Works as expected |
+| Main menu call | ```back``` | Alert that any non-saved data will be lost and ask confirmation before proceeding | Works as expected |
+| Main menu call | ```back n``` | Null command, it should only re-print the current settings and request for new input | Works as expected |
+| Main menu call | ```back x``` | Incorrect passed value to 'back' function, error message and request for new confirmation on the back command | Works as expected |
+| Main menu call | ```back y``` | Forced back, no request for confirmation, just alerts the possibility of losing non-saved data and proceed | Works as expected |
+| Main menu call | ```entry``` | Alert that any non-saved data will be lost and ask confirmation before proceeding, set will remain open, in case the user uses back or cancel on entry function | Works as expected |
+| Main menu call | ```entry n``` | Null command, it should only re-print the current settings and request for new input | Works as expected |
+| Main menu call | ```entry y``` | Forced entry, no request for confirmation, just alerts the possibility of losing non-saved data and proceed, value 'y' is also passed to entry | Works as expected |
+| Main menu call | ```entry short``` | Alert that any non-saved data will be lost and ask confirmation before proceeding, passes 'short' to entry function | Works as expected |
+| Main menu call | ```entry y short``` | Forced entry, no request for confirmation, just alerts the possibility of losing non-saved data and proceed, passes 'y short' to entry function where 'y' will be invalidated | Works as expected |
+| Update settings | ```20``` | Invalid request error message, reprint input request | Works as expected |
+| Update settings | ```position_num:18``` | Update setting position_num on the database and program output | Works as expected |
+| Update settings | ```position_num:apple``` | Invalid request error message, reprint input request | Works as expected |
+| Update settings | ```drawdown:0.35``` | Update setting drawdown to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```drawdown:35%``` | Update setting drawdown to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```drawdown:0,32``` | Fixes ',' to '.' and update setting drawdown to 32%(0.32) on the database and program output | Works as expected |
+| Update settings | ```drawdown:pear``` | Invalid request error message, reprint input request | Works as expected |
+| Update settings | ```total_risk:0.35``` | Update setting total_risk to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```total_risk:35%``` | Update setting total_risk to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```total_risk:0,32``` | Fixes ',' to '.' and update setting total_risk to 32%(0.32) on the database and program output | Works as expected |
+| Update settings | ```total_risk:pear``` | Invalid request error message, reprint input request | Works as expected |
+| Update settings | ```amount:1200.00``` | Update setting amount to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```amount:200%``` | Invalid request error message, reprint input request |  Update setting amount to 200%(2) on the database and program output |
+| Update settings | ```amount:1200,00``` | Fixes ',' to '.' and update setting amount to 32%(0.32) on the database and program output | Works as expected |
+| Update settings | ```amount:pear``` | Invalid request error message, reprint input request | Works as expected |
 
 ### Entry inner functions
 
+Running commands from inside 'entry' function.
+
+| **Feature** | **CLI Input** | **Expected Result** | **Actual Result** |
+|-------------|---------------|---------------------|-------------------|
 
 # Future optimizations
 
