@@ -1,4 +1,4 @@
-# Trading book
+# Trading Book System
 
 [Live project can be viewed here](https://trading-book-de510f70748d.herokuapp.com/)
 
@@ -28,6 +28,7 @@ The Trading Book System is an open-source interactive command-line tool designed
 * [Deployment](#deployment)
 * [Testing](#testing)
     * [Manual Testing](#manual-testing)
+* [Future optimizations](#future-optimizations)
 * [Credits](#credits)
     * [Code](#code)
     * [Content](#content)
@@ -43,8 +44,6 @@ As a trader, I want to be able to log my trades efficiently, update my trading s
 
 # Design
 
-# Design
-
 The design of the Trading Book System is based on a flowchart that outlines the expected flow of operations, validation processes, and interactions with the Google Sheets database. This ensures a seamless user experience and efficient data management.
 
 Key design principles include:
@@ -55,12 +54,6 @@ Key design principles include:
 Errors are displayed in red, and successes are displayed in green. Confirmations are required before moving away from any jobs or completing a new trade entry input.
 
 # Features
-
-## Existing features
-
-# Features
-
-## Existing features
 
 * **Smart Input Interpreter**: Enhances user experience by simplifying data entry and minimizing errors. It processes and validates user inputs intelligently, ensuring correct formatting and alignment with system requirements. For example, the Entry function allows users to input data for other data requests within the same job. Confirmation requests are flexible, accepting variations like "YEAH" or "NOPE" in addition to simple "y/n" inputs.
 * **Trade Entry**: Log new trades with details such as action, asset, type, price, stop, and ATR. Also allows bulk import by inputting JSON format according to specifications.
@@ -74,6 +67,8 @@ Errors are displayed in red, and successes are displayed in green. Confirmations
 * **Advanced Analytics**: Integrate more advanced analytics for trade performance and risk management.
 * **Automated Alerts**: Add functionality for automated alerts based on trade conditions identified.
 * **Auto Execution of Trades**: Enable fully automated trading via API requests to stock exchanges.
+* **Automate the whole trade chain of processes**: From pricing patterns reading to order execution at the exchagen, the full process can be automated. Alerts of moves can be sent via API to Telegram to keep the user up to date, while the program convert price patterns into money, by reading patterns, creating signals of entry and exit, position sizing, risk management, API call to communicate the new move and API call to execute the same at the exchange. Almost a whole Commodity Trading Fund. 
+* **Work as an installed module on a Linux server**: Integrating the created functions with Bash commands can significantly enhance user capabilities. By allowing direct parsing through logs while interacting with the program, users can achieve a new level of control and efficiency in their workflows. Security, scalability and performance would be significantly improved in a setup like that.
 
 # How to use
 
@@ -196,7 +191,22 @@ To deploy the application on Heroku:
 
 # Testing
 
+Testing was primarily conducted using the VSC (Visual Studio Code) terminal. Given the complexity of the code, testing and fixes were integrated into the development process. The project initially started with a set of loose functions and later transitioned to an object-oriented programming (OOP) structure for better management and readability.
+
+PEP8 compliance was first ensured after completing the Entry feature, which was the initial significant feature of the program. From that point onward, each commit was only accepted if the code was 100% PEP8 compliant. This practice facilitated maintaining clean and standardized code throughout the development process.
+
+Errors were identified early and addressed promptly, adhering to the daily work schedule. Dedicated testing time was allocated each day to ensure thorough validation. Inspired by the principles outlined in the "Clean Code" book, the primary objective for each function was to ensure functionality. Once the function was working correctly, optimizations were made to keep the code concise, well-commented, and easily maintainable.
+
 ## Manual testing
+
+| **Feature** | **Action** | **Expected Result** | **Actual Result** |
+|-------------|------------|---------------------|-------------------|
+
+# Future optimizations
+
+Over the course of nearly 200 hours dedicated to this project, numerous objects and functions were created with reusability in mind. A significant portion of the code was designed to be reusable in other features or projects. However, some objects contain multiple methods and would benefit from being broken down into smaller, more manageable objects.
+
+Additionally, some functions currently perform multiple tasks. Due to time constraints, these functions had to be left as they are. This section of the README file has been included to highlight areas for future refactoring and improvement. Reworking these functions and objects will enhance code modularity, readability, and maintainability.
 
 # Credits
 
@@ -216,4 +226,4 @@ To deploy the application on Heroku:
 
 * **Gareth Mc Girr**: My mentor, for all the help and advice throughout the project.
 * **Code Institute**: For all the training and guidance.
-* **WP Engine**: My current employer, for providing all the support needed.
+* **WP Engine**: My current employer, for providing all the support necessary and allowing great networking.
