@@ -742,13 +742,16 @@ class InputValidation:
                     # If the parent command is 'help' and no child command has
                     # been set, set this word as child command
 
-                    child_command = word
+                    child_command.append(word)
                 else:
                     cancelled_commands.append(word)
             else:
-                # Append non-command words as child commands or parameters
+                if parent_command == "help":
+                    # Append non-command words as child commands or parameters
 
-                child_command.append(word)
+                    cancelled_commands.append(word)
+                else:
+                    child_command.append(word)
         if cancelled_commands:
             # Handle errors when an invalid command structure is detected
 
@@ -2386,9 +2389,8 @@ class Entry:
                                  formatted_data[6],
                                  formatted_data[7],
                                  None,
-                                 None,
-                                 formatted_data[6],
-                                 formatted_data[7]
+                                 formatted_data[4],
+                                 formatted_data[6]
                                  ]
             worksheet.append_row(composed_new_data)
 

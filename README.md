@@ -224,7 +224,7 @@ This is a command line project, all the manual testing was focused on checking v
 | Help | ```help ./grape``` | Error returns informing 'grape' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
 | Help | ```./help entyr``` | Error returns informing 'entyr' is not a valid input, general help is shown, alert to try again and go back to main input request | Works as expected |
 | Help | ```help ./entry set``` | Help takes priority over './entry' and 'set', './' forces entry through as secondary command, set is ignored, shows entry help options, going back to main input request afterwards | Works as expected |
-| Help | ```help entry ./ste``` | ./ste is invalidated, shows entry help options, going back to main input request afterwards | It crashes on line 751: AttributeError: 'str' object has no attribute 'append'|
+| Help | ```help entry ./ste``` | ./ste is invalidated, shows entry help options, going back to main input request afterwards | Works as expected |
 | Help | ```help entry ./check``` | Help takes priority over './check' and 'entry', './' forces check through as secondary command, entry is ignored, shows check help options, going back to main input request afterwards | Works as expected |
 | Check | ```help ./entry ./check``` | Help takes priority over './entry' and './check', './' forces entry through as secondary command, './check' is ignored, shows entry help options, going back to main input request afterwards | Check help options is shown instead of entry help |
 | Check | ```check``` | Open check options, showing a table with all open orders if there is any, or error if there is none and back to main input request | Works as expected |
@@ -363,6 +363,47 @@ Running commands from inside 'entry' function.
 
 | **Feature** | **CLI Input** | **Expected Result** | **Actual Result** |
 |-------------|---------------|---------------------|-------------------|
+| General | "any input, except the next ones" | Invalid input error message, reprint the current settings and ask for new input | Works as expected |
+| Multiple menu call | e.g. ```check entry``` | Invalid input error, 'check' takes priority and gets executed | Error message is printing twice |
+| Multiple menu call | e.g. ```check ./entry``` | Invalid input error, 'entry' takes priority due to './' and gets executed | Error message is printing twice |
+| Main menu call | ```help``` | Prints 'set' help options | Works as expected |
+| Main menu call | ```help entry``` | Prints 'entry' help options | Works as expected |
+| Main menu call | ```help invalid``` | 'invalid' is invalidated and return error message, Prints main help options | Works as expected |
+| Main menu call | ```check``` | Open check options, showing a table with all open orders if there is any, or error if there is none and back to set input request | Works as expected |
+| Main menu call | ```check banana``` | Error message is shown informing 'banana' is not a valid input, and plain check is run | 'banana' is ignored, and check function works ok, but no error message shown |
+| Main menu call | ```exit``` | Alert that any non-saved data will be lost and ask confirmation before proceeding | Works as expected |
+| Main menu call | ```exit n``` | Null command, it should only re-print the current settings and request for new input | Error message alerting data non-saved will be lost is being printed |
+| Main menu call | ```exit x``` | Incorrect passed value to 'exit' function, error message and request for new confirmation on the exit command | Works as expected |
+| Main menu call | ```exit y``` | Forced exit, no request for confirmation, just alerts the possibility of losing non-saved data and proceed | Works as expected |
+| Main menu call | ```cancel``` | Alert that any non-saved data will be lost and ask confirmation before proceeding | Works as expected |
+| Main menu call | ```cancel n``` | Null command, it should only re-print the current settings and request for new input | Works as expected |
+| Main menu call | ```cancel x``` | Incorrect passed value to 'cancel' function, error message and request for new confirmation on the cancel command | Works as expected |
+| Main menu call | ```cancel y``` | Forced cancel, no request for confirmation, just alerts the possibility of losing non-saved data and proceed | Works as expected |
+| Main menu call | ```back``` | Alert that any non-saved data will be lost and ask confirmation before proceeding | Works as expected |
+| Main menu call | ```back n``` | Null command, it should only re-print the current settings and request for new input | Works as expected |
+| Main menu call | ```back x``` | Incorrect passed value to 'back' function, error message and request for new confirmation on the back command | Works as expected |
+| Main menu call | ```back y``` | Forced back, no request for confirmation, just alerts the possibility of losing non-saved data and proceed | Works as expected |
+| All parameters still required | Initial screen | Show help for entry and request first input for action | Works as expected |
+| All parameters still required | ```bulk``` | Introductory message advise entry mode has been initiated, with example of input and input request | Works as expected |
+| All parameters still required | ```bulk anything``` | Bulk is  priorityzed (except if main menu input): Introductory message advise entry mode has been initiated, with example of input and input request | Works as expected |
+| All parameters still required | ```bulk set``` | Set is priorityzed and bulk ignored | Works as expected |
+| All parameters still required | ```open``` or ```close``` or ```update``` | Action is updated on line above input request and move to next input request | Works as expected |
+| All parameters still required | ```open short``` or any other number of valid input for other entry parameters | Action is updated, and short is defined as type on line above input request and move to next input request. Order of inputs is irrelevant, entry validations are smart to move them around and validate them if correctly requested | Works as expected |
+| All parameters still required | ```open shot``` or any other number of invalid secondary input for other entry parameters | Action is updated on line above input request, 'shot' is invalidated and shows error message, and move to next input request. | Works as expected |
+| All parameters still required | ```open asset:btc``` or any other number of valid input for other entry parameters using format key:value | Action and asset is updated on line above input request and move to next input request. As asset acepts any characteres and format types this can only be validated if key:value format is used | Works as expected |
+| Action is defined | ```btc short``` or any other number of valid secondary input for other entry parameters | As asset is actively being requested the first input is identified as asset and all others try to validate against parameters not defined | Works as expected |
+| Action is defined | ```btc close``` or any other number of valid secondary input for other entry parameters already defined | As asset is actively being requested the first input is identified as asset and all others try to validate against parameters not defined, in this case action was already defined so close is not validated and returns an error informing it | Works as expected |
+| Action is defined | ```btc action:close``` or any other number of valid secondary input using format key:value for other entry parameters already defined | As asset is actively being requested the first input is identified as asset and all others try to validate against parameters not defined, in this case action was already defined but the format key:value is used, the edit is validated correctly | Works as expected |
+| Action is defined as open and there is an open trade for asset called 'btc' | ```btc``` | Error message advising the asset already has an open order and cannot have duplicates | Works as expected |
+| Action is defined as open and there is an open trade for asset called 'btc' | ```eth``` | Validates asset as normal and proceed | Works as expected |
+| Action is defined as 'close' or 'update' and there is no open trade for asset called 'btc' | ```btc``` | Error message advising an order can only be closed or updated if there is an open order already | Works as expected |
+| Action is defined as 'close' or 'update' and there is open trade for asset called 'btc' | ```btc``` | Validates as expected and continue | Works as expected |
+| Other input requests | invalid values | Return error advising the invalidated value and ask same input again | Works as expected |
+| Other input requests | valid values | Updates string above input request and move to next missing input | Works as expected |
+| All inputs are completed | n/a | Requests confirmation of input data, if confirmed: complete showing a confirmation message and saves input on database | Works as expected |
+| All inputs are completed | n/a | Requests confirmation of input data, if not confirmed: Error message and cancel | Works as expected |
+| Bulk mode | invalid value | Error message and cancel | Works as expected |
+| Bulk mode | ```[{"action":"open", "asset":"btc", "type":"long", "price":"15.00000000", "stop":"10.00000000", "atr":"0.0100"},{"action":"close", "asset":"btc", "type":"log", "price":"17.00000000", "stop":"13.00000000", "atr":"0.0110"}]``` | Validates each and every entry showing confirmation of passed input of error for invalid inputs | Works as expected |
 
 # Future optimizations
 
