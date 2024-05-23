@@ -2306,7 +2306,7 @@ class Entry:
         atr = float(atr)
 
         # Get the current time
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M:%S")
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M")
 
         raw_data = [
                 current_time,
@@ -3063,8 +3063,8 @@ class Check:
             self.data = worksheet.get_all_values()
 
             headers = [
-                "Timestamp (UTC)", "Action", "Asset", "Type",
-                "Price", "Stop", "ATR (%/100)", "Duration (D)"
+                "Timestamp", "Action", "Asset", "Type",
+                "Price", "Stop", "ATR", "Duration"
             ]
 
             for row in self.data[1:]:  # Skip header row
@@ -3079,7 +3079,7 @@ class Check:
 
                     # Calculate duration in days
                     time_open_dt = datetime.datetime.strptime(
-                        time_open, "%Y-%m-%d:%H:%M:%S"
+                        time_open, "%Y-%m-%d:%H:%M"
                         )
                     duration = (datetime.datetime.now() - time_open_dt).days
 
@@ -3102,14 +3102,6 @@ class Check:
         except Exception as e:
             if not silent:
                 print(ERROR(f"Error while listing open orders: {e}"))
-
-
-# Process execution
-
-
-class Calculation:
-    def start(self):
-        print("placeholder")
 
 
 # Main loop
