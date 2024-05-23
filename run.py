@@ -2,9 +2,56 @@ import re
 import json
 import gspread
 import datetime
+import builtins
+import textwrap
 from gspread.exceptions import APIError
 from google.oauth2.service_account import Credentials
 from google.auth.exceptions import GoogleAuthError, DefaultCredentialsError
+
+
+# Text wrapper
+
+# Save the original print function
+original_print = builtins.print
+
+
+def custom_print(*args, sep=' ', end='\n', file=None, width=70, **kwargs):
+    """
+    Custom print function that wraps text to a specified width.
+
+    This function replaces the default print behavior by wrapping
+    the text to a specified width, making it easier to read in
+    narrow console windows. The wrapped text is printed using
+    the original print function.
+
+    Args:
+        *args: Variable length argument list to be printed.
+        sep (str): String inserted between values, default is a space.
+        end (str): String appended after the last value, default is a newline.
+        file: A file-like object (stream); defaults to the current sys.stdout.
+        width (int): The maximum width of the printed text, default is 70.
+        **kwargs: Arbitrary keyword arguments passed to the original print
+                function.
+
+    Example:
+        custom_print("This is a very long line that will be wrapped to the
+                    specified width.", width=40)
+    """
+    # Combine the arguments into a single string
+    text = sep.join(map(str, args))
+    # Wrap the text
+    wrapped_text = textwrap.fill(
+         text,
+         width=width,
+         break_long_words=False,
+         replace_whitespace=False
+         )
+    # Call the original print function with the wrapped text
+    original_print(wrapped_text, end=end, file=file, **kwargs)
+
+
+# Override the built-in print function with the custom one
+builtins.print = custom_print
 
 
 # Define the Google API scopes that the application will need access to.
@@ -1869,7 +1916,7 @@ class MainMenu:
         """
         Check().list_open_orders()
 
-    def exit_program(self,leave=None):
+    def exit_program(self, leave=None):
         """
         Executes the process to safely exit the program, ensuring that the
         user is made aware of any unsaved data that could be lost upon exiting.
@@ -1899,9 +1946,13 @@ class MainMenu:
 
         if not leave:
             leave = get_input(
-                italic(red("Would you like to quit the program anyways? (y/n)\n"))
+                italic(red(
+                    "Would you like to quit the "
+                    "program anyways? (y/n)\n"
+                    )
+                    )
             )
-            
+
         confirmation = yes_or_no(leave)
 
         if confirmation is True:
@@ -2261,7 +2312,7 @@ class Entry:
                     )
                 )
             else:
-                #Used for bulk mode report
+                # Used for bulk mode report
                 print(SUCCESS(
                     f"Entry saved: {action} {asset} {type}"
                     f" {price} {stop} {atr}"
@@ -2276,7 +2327,7 @@ class Entry:
                     )
                 )
             else:
-                #Used for bulk mode report
+                # Used for bulk mode report
                 print(ERROR(
                     f"Entry failed: {action} {asset} {type}"
                     f" {price} {stop} {atr}"
@@ -2306,7 +2357,7 @@ class Entry:
         atr = float(atr)
 
         # Get the current time
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d:%H:%M")
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d")
 
         raw_data = [
                 current_time,
@@ -2853,7 +2904,7 @@ class Help:
                     self.context = None
                     self.main_help()
                     print(ERROR("\nPlease try again."))
-                
+
 
 class Set:
     """
@@ -2885,9 +2936,9 @@ class Set:
         self.data = self.worksheet.get_all_values()
         self.input = input
         self.data_settings = {
-            "position_num": ("#", None),
+            "position": ("#", None),
             "drawdown": ("#.##%", None),
-            "total_risk": ("#.##%", None),
+            "risk": ("#.##%", None),
             "amount": ("#.##", None)
         }
 
@@ -2921,15 +2972,15 @@ class Set:
                             else:
                                 self.data_settings[k] = new_data_details[k]
 
-                                position_num, drawdown, total_risk, amount = (
+                                position, drawdown, risk, amount = (
                                     self.data_settings[k][1].split(':')[1]
                                     for k in self.data_settings
                                     )
 
                                 composed_new_data = [
-                                    position_num,
+                                    position,
                                     drawdown,
-                                    total_risk,
+                                    risk,
                                     amount
                                     ]
 
@@ -2973,8 +3024,6 @@ class Set:
                 f"{key}:{current_settings[i]}"
                 )
 
-        table = [headers, current_settings]
-
         if silent:
             return self.data_settings
         else:
@@ -2985,9 +3034,20 @@ class Set:
                 "the it's in place for future expansions where global "
                 "settings might be necessary"
                 )
-            print(dim("   Example: position_num:15"))
-            print(green("\nCurrent settings:"))
-            Table(table, headers).print_table()
+            print(dim("   Example: position:15"))
+            print(green("\nCurrent settings:\n"))
+
+        vertical_table = [
+                ["Setting", "Value"],
+                ["Max number of open positions", current_settings[0]],
+                ["Max drawdown (%/100)", current_settings[1]],
+                ["Max total risk (%/100)", current_settings[2]],
+                ["Amount", current_settings[3]],
+            ]
+
+        vertical_headers = ["Setting", "Value"]
+
+        Table(vertical_table, vertical_headers).print_table()
 
 
 class Check:
@@ -3064,7 +3124,7 @@ class Check:
 
             headers = [
                 "Timestamp", "Action", "Asset", "Type",
-                "Price", "Stop", "ATR", "Duration"
+                "Price", "Stop", "ATR"
             ]
 
             for row in self.data[1:]:  # Skip header row
@@ -3077,15 +3137,9 @@ class Check:
                     stop_open = row[9]
                     atr_open = row[10]
 
-                    # Calculate duration in days
-                    time_open_dt = datetime.datetime.strptime(
-                        time_open, "%Y-%m-%d:%H:%M"
-                        )
-                    duration = (datetime.datetime.now() - time_open_dt).days
-
                     open_orders.append([
                         time_open, action, asset, type_,
-                        price_open, stop_open, atr_open, duration
+                        price_open, stop_open, atr_open
                     ])
 
             if open_orders:

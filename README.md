@@ -91,7 +91,7 @@ entry asset:btc long 50000 stop:45000 3% open
 
 * Updating Settings:
 ```
-./set position_num:5 drawdown:10% total_risk:5%
+./set position:5 drawdown:10% risk:5%
 set
 ```
 
@@ -170,6 +170,7 @@ The system ensures that before moving away from a current job or completing a ne
 * **[LucidChart](https://lucid.app)**: For flowchart creation and project initial planning.
 * **Visual Studio Code**: As the integrated development environment (IDE) of choice.
 * **Google Sheets**: Used as a database for storing and managing trade data. The project’s Google Sheet can be viewed [here](https://docs.google.com/spreadsheets/d/11yF7zZ4YkLPFGiV84rwFdnI6vDUi4uwlRiTczyG5f3U/edit?usp=sharing)
+* **builtins and textwrap**: Used to fix text wrapper issues
 
 # Deployment
 
@@ -281,9 +282,9 @@ This is a command line project, all the manual testing was focused on checking v
 | Set | ```set back entry``` | Invalid request error message, being first string 'set' is taken as priority, run it and back to main input request | Works as expected |
 | Set | ```entry ./set cancel``` | Invalid request error message, having './' string 'set' is taken as priority and run it | Works as expected |
 | Set | ```entry exit ./set``` | Invalid request error message, having './' string 'set' is taken as priority and run it | Works as expected |
-| Set | ```set position_num:15 drawdown:30% total_risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
-| Set | ```set position_num:20 drawdown:30% total_risk:0.20 amount:1000.00``` | Update settings with the provided values and confirm the update, 'total_risk:0.20' returns invalid value | Values not being passed to settings, or being rewritten by DB reading |
-| Set | ```set total_risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set position:15 drawdown:30% risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set position:20 drawdown:30% risk:0.20 amount:1000.00``` | Update settings with the provided values and confirm the update, 'risk:0.20' returns invalid value | Values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
 | Set | ```set 0,20``` | Invalid request error message for '0,20', starts function set without passing invalid string | No error message showing, values not being passed to settings, or being rewritten by DB reading |
 | Set | ```set 20%``` | Invalid request error message for '20%', starts function set without passing invalid string | No error message showing, values not being passed to settings, or being rewritten by DB reading |
 | Entry | ```entry``` | Open entry options, allowing user to log a trade | Works as expected |
@@ -342,16 +343,16 @@ Running commands from inside 'set' function.
 | Main menu call | ```entry short``` | Alert that any non-saved data will be lost and ask confirmation before proceeding, passes 'short' to entry function | Works as expected |
 | Main menu call | ```entry y short``` | Forced entry, no request for confirmation, just alerts the possibility of losing non-saved data and proceed, passes 'y short' to entry function where 'y' will be invalidated | Works as expected |
 | Update settings | ```20``` | Invalid request error message, reprint input request | Works as expected |
-| Update settings | ```position_num:18``` | Update setting position_num on the database and program output | Works as expected |
-| Update settings | ```position_num:apple``` | Invalid request error message, reprint input request | Works as expected |
+| Update settings | ```position:18``` | Update setting position on the database and program output | Works as expected |
+| Update settings | ```position:apple``` | Invalid request error message, reprint input request | Works as expected |
 | Update settings | ```drawdown:0.35``` | Update setting drawdown to 35%(0.35) on the database and program output | Works as expected |
 | Update settings | ```drawdown:35%``` | Update setting drawdown to 35%(0.35) on the database and program output | Works as expected |
 | Update settings | ```drawdown:0,32``` | Fixes ',' to '.' and update setting drawdown to 32%(0.32) on the database and program output | Works as expected |
 | Update settings | ```drawdown:pear``` | Invalid request error message, reprint input request | Works as expected |
-| Update settings | ```total_risk:0.35``` | Update setting total_risk to 35%(0.35) on the database and program output | Works as expected |
-| Update settings | ```total_risk:35%``` | Update setting total_risk to 35%(0.35) on the database and program output | Works as expected |
-| Update settings | ```total_risk:0,32``` | Fixes ',' to '.' and update setting total_risk to 32%(0.32) on the database and program output | Works as expected |
-| Update settings | ```total_risk:pear``` | Invalid request error message, reprint input request | Works as expected |
+| Update settings | ```risk:0.35``` | Update setting risk to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```risk:35%``` | Update setting risk to 35%(0.35) on the database and program output | Works as expected |
+| Update settings | ```risk:0,32``` | Fixes ',' to '.' and update setting risk to 32%(0.32) on the database and program output | Works as expected |
+| Update settings | ```risk:pear``` | Invalid request error message, reprint input request | Works as expected |
 | Update settings | ```amount:1200.00``` | Update setting amount to 35%(0.35) on the database and program output | Works as expected |
 | Update settings | ```amount:200%``` | Invalid request error message, reprint input request |  Update setting amount to 200%(2) on the database and program output |
 | Update settings | ```amount:1200,00``` | Fixes ',' to '.' and update setting amount to 32%(0.32) on the database and program output | Works as expected |
