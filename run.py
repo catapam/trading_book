@@ -255,6 +255,7 @@ styles = StyleOutput()
 gray = styles.apply_style("gray")
 red = styles.apply_style("red")
 green = styles.apply_style("green")
+cyan = styles.apply_style("cyan")
 bold = styles.apply_style("bold")
 italic = styles.apply_style("italic")
 underscore = styles.apply_style("underscore")
@@ -2633,6 +2634,8 @@ class Help:
         for key, (format, value) in data_settings.items():
             format_text = "any value" if format == "any" else format
             print(f"- {key.capitalize()} options: {format_text}")
+
+        input(cyan("\nPress ENTER to continue:\n"))
         print(green(italic("\nFunctionalities:")))
         print(
             "- You can still use any of the main menu calls, plese note that "
@@ -2955,7 +2958,12 @@ class Set:
         self.data_settings = self.get_current_settings(silent=True)
 
         while True:
-            prompt = PATH(self.cmd, self.data_settings)
+            if self.input:
+                prompt = self.input
+                self.input = None
+            else:
+                prompt = PATH(self.cmd, self.data_settings)
+
             input_validate = InputValidation(prompt, context=self.cmd)
             format_validator = DataFormatValidation(self.data_settings, prompt)
 
@@ -2986,6 +2994,15 @@ class Set:
 
                                 DB.rewrite_target_row(
                                     self.cmd, composed_new_data, 2
+                                    )
+
+                                print(SUCCESS(
+                                    "\nNew settings saved:\n"
+                                    f"position:{composed_new_data[0]} "
+                                    f"drawdown:{composed_new_data[1]} "
+                                    f"risk:{composed_new_data[2]} "
+                                    f"amount:{composed_new_data[3]}"
+                                    )
                                     )
                 else:
                     cancel = input_validate.multi_menu_call()
@@ -3035,6 +3052,7 @@ class Set:
                 "settings might be necessary"
                 )
             print(dim("   Example: position:15"))
+            input(cyan("\nPress ENTER to continue:\n"))
             print(green("\nCurrent settings:\n"))
 
         vertical_table = [
@@ -3197,6 +3215,7 @@ class TradingBookSystem:
 
         print(underscore(GREETING(self.greeting)))
         self.menu.menu_help()
+        input(cyan("\nPress ENTER to continue:\n"))
         Help.pro_tips()
         Check().list_open_orders(silent=True)
 

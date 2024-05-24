@@ -28,6 +28,7 @@ The Trading Book System is an open-source interactive command-line tool designed
 * [Deployment](#deployment)
 * [Testing](#testing)
     * [Manual Testing](#manual-testing)
+* [Bugs](#bugs)
 * [Future optimizations](#future-optimizations)
 * [Credits](#credits)
     * [Code](#code)
@@ -282,11 +283,11 @@ This is a command line project, all the manual testing was focused on checking v
 | Set | ```set back entry``` | Invalid request error message, being first string 'set' is taken as priority, run it and back to main input request | Works as expected |
 | Set | ```entry ./set cancel``` | Invalid request error message, having './' string 'set' is taken as priority and run it | Works as expected |
 | Set | ```entry exit ./set``` | Invalid request error message, having './' string 'set' is taken as priority and run it | Works as expected |
-| Set | ```set position:15 drawdown:30% risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
-| Set | ```set position:20 drawdown:30% risk:0.20 amount:1000.00``` | Update settings with the provided values and confirm the update, 'risk:0.20' returns invalid value | Values not being passed to settings, or being rewritten by DB reading |
-| Set | ```set risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Values not being passed to settings, or being rewritten by DB reading |
-| Set | ```set 0,20``` | Invalid request error message for '0,20', starts function set without passing invalid string | No error message showing, values not being passed to settings, or being rewritten by DB reading |
-| Set | ```set 20%``` | Invalid request error message for '20%', starts function set without passing invalid string | No error message showing, values not being passed to settings, or being rewritten by DB reading |
+| Set | ```set position:15 drawdown:30% risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Works as expected |
+| Set | ```set position:20 drawdown:30% risk:0.20 amount:1000.00``` | Update settings with the provided values and confirm the update, 'risk:0.20' returns invalid value | Works as expected |
+| Set | ```set risk:20% amount:1000.00``` | Update settings with the provided values and confirm the update | Works as expected |
+| Set | ```set 0,20``` | Invalid request error message for '0,20', starts function set without passing invalid string | No error message showing |
+| Set | ```set 20%``` | Invalid request error message for '20%', starts function set without passing invalid string | No error message showing |
 | Entry | ```entry``` | Open entry options, allowing user to log a trade | Works as expected |
 | Entry | ```entyr``` | Invalid request error message and back to main input request | Works as expected |
 | Entry | ```set ./entry``` | Entry takes priority over './set', shows entry options, going back to main input request afterwards | Works as expected |
@@ -405,6 +406,26 @@ Running commands from inside 'entry' function.
 | All inputs are completed | n/a | Requests confirmation of input data, if not confirmed: Error message and cancel | Works as expected |
 | Bulk mode | invalid value | Error message and cancel | Works as expected |
 | Bulk mode | ```[{"action":"open", "asset":"btc", "type":"long", "price":"15.00000000", "stop":"10.00000000", "atr":"0.0100"},{"action":"close", "asset":"btc", "type":"log", "price":"17.00000000", "stop":"13.00000000", "atr":"0.0110"}]``` | Validates each and every entry showing confirmation of passed input of error for invalid inputs | Works as expected |
+
+# Bugs
+
+Due to project delivery deadline some bugs were not fixed just yet, as they would demand quite some time on re-writting key functions, possibly requiring more testing. The small bugs found on testing phase do not affect the main functionality of the project or cause it to crash, being mostly related to layered loops causing duplicated error messages on specific situations. Adding some IF statements to filter those situations can resolve the issues, but again, demands time and testing.
+
+Below it is a table of the tests that shown bugs, where the bugs are explained on the 'Actual result' column:
+
+| **Feature** | **CLI Input** | **Expected Result** | **Actual Result** |
+|-------------|---------------|---------------------|-------------------|
+| Help Command Handling | `help ./entry ./check` | Help takes priority over './entry' and './check', './' forces entry through as secondary command, './check' is ignored, shows entry help options, going back to main input request afterwards. | Check help options are shown instead of entry help. |
+| Check Command Error Handling | `check banana` | Error message is shown informing 'banana' is not a valid input, and plain check is run. | 'banana' is ignored, and check function works, but no error message is shown. |
+| Check Command Error Handling | `apple check` | Error message is shown informing 'apple' is not a valid input, and plain check is run. | 'apple' is ignored, and check function works, but no error message is shown. |
+| Check Command Error Handling | `grape ./check` | Error message is shown informing 'grape' is not a valid input, and plain check is run. | 'grape' is ignored, and check function works, but no error message is shown. |
+| Cancel Command Error Handling | `cancel banana` | Error message is shown informing 'banana' is not a valid input, and plain cancel is run. | 'banana' is ignored, and cancel function works, but no error message is shown. |
+| Cancel Command Error Handling | `apple cancel` | Error message is shown informing 'apple' is not a valid input, and plain cancel is run. | 'apple' is ignored, and cancel function works, but no error message is shown. |
+| Cancel Command Error Handling | `grape ./cancel` | Error message is shown informing 'grape' is not a valid input, and plain cancel is run. | 'grape' is ignored, and cancel function works, but no error message is shown. |
+| Exit Command Error Handling | `exit banana` | 'banana' is invalidated showing error message, and exit is continued. | 'banana' is passed to exit showing the error message of invalid input on the confirmation request. |
+| Exit Command Error Handling | `apple exit` | 'apple' is invalidated showing error message, and exit is continued. | 'apple' is passed to exit showing the error message of invalid input on the confirmation request. |
+| Exit Command Error Handling | `grape ./exit` | 'grape' is invalidated showing error message, and exit is continued. | 'grape' is passed to exit showing the error message of invalid input on the confirmation request. |
+| Set Command Value Passing | `amount:200%` | Invalid request error message, reprint input request. | Update setting amount to 200%(2) on the database and program output. |
 
 # Future optimizations
 
